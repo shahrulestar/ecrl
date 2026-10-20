@@ -148,6 +148,23 @@ var ArrowUpDownIcon = [
 	}]
 ];
 //#endregion
+//#region node_modules/@hugeicons/core-free-icons/dist/esm/Copy01Icon.js
+var Copy01Icon = [["path", {
+	d: "M7.5 14.5C7.5 11.2002 7.5 9.55025 8.52513 8.52513C9.55025 7.5 11.2002 7.5 14.5 7.5C17.7998 7.5 19.4497 7.5 20.4749 8.52513C21.5 9.55025 21.5 11.2002 21.5 14.5C21.5 17.7998 21.5 19.4497 20.4749 20.4749C19.4497 21.5 17.7998 21.5 14.5 21.5C11.2002 21.5 9.55025 21.5 8.52513 20.4749C7.5 19.4497 7.5 17.7998 7.5 14.5Z",
+	stroke: "currentColor",
+	strokeLinecap: "round",
+	strokeLinejoin: "round",
+	strokeWidth: "1.5",
+	key: "0"
+}], ["path", {
+	d: "M7.5 16.5C6.10355 16.5 5.40533 16.5 4.84402 16.3036C3.83866 15.9518 3.0482 15.1613 2.69641 14.156C2.5 13.5947 2.5 12.8964 2.5 11.5V9.5C2.5 6.20017 2.5 4.55025 3.52513 3.52513C4.55025 2.5 6.20017 2.5 9.5 2.5H11.5C12.8964 2.5 13.5947 2.5 14.156 2.69641C15.1613 3.0482 15.9518 3.83866 16.3036 4.84402C16.5 5.40533 16.5 6.10355 16.5 7.5",
+	stroke: "currentColor",
+	strokeLinecap: "round",
+	strokeLinejoin: "round",
+	strokeWidth: "1.5",
+	key: "1"
+}]];
+//#endregion
 //#region node_modules/@hugeicons/core-free-icons/dist/esm/MinusSignIcon.js
 var MinusSignIcon = [["path", {
 	d: "M20 12L4 12",
@@ -299,4 +316,4 @@ var UnfoldMoreIcon = [["path", {
 	key: "1"
 }]];
 //#endregion
-export { PlusSignIcon as a, ArrowUpDownIcon as c, ArrowDown01Icon as d, AlertCircleIcon as f, Sun01Icon as i, ArrowUp01Icon as l, Train01Icon as n, Moon01Icon as o, Alert02Icon as p, Tick02Icon as r, MinusSignIcon as s, UnfoldMoreIcon as t, ArrowLeftRightIcon as u };
+export { PlusSignIcon as a, Copy01Icon as c, ArrowLeftRightIcon as d, ArrowDown01Icon as f, Sun01Icon as i, ArrowUpDownIcon as l, Alert02Icon as m, Train01Icon as n, Moon01Icon as o, AlertCircleIcon as p, Tick02Icon as r, MinusSignIcon as s, UnfoldMoreIcon as t, ArrowUp01Icon as u };

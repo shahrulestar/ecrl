@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -61,13 +62,14 @@ import {
   stations,
   type StationName,
 } from "@/data/fares";
+import { fareSearchParams } from "@/lib/fare-search";
 
 const STATES = ["Selangor", "Pahang", "Terengganu", "Kelantan"] as const;
 
 const concessions = [
-  { id: "adult", label: "Adult", off: 0 },
-  { id: "student", label: "Student 13–24 · 40% off", off: 0.4 },
-  { id: "half", label: "Child, senior, OKU, pensioner · 50% off", off: 0.5 },
+  { id: "adult", trigger: "Adult", label: "Adult", off: 0 },
+  { id: "student", trigger: "Student", label: "Student 13–24 · 40% off", off: 0.4 },
+  { id: "half", trigger: "Child, senior, OKU, pensioner", label: "Child, senior, OKU, pensioner · 50% off", off: 0.5 },
 ] as const;
 
 type ConcessionId = (typeof concessions)[number]["id"];
@@ -86,14 +88,16 @@ function StationSelect({
   label,
   value,
   onChange,
+  fit = false,
 }: {
   id: string;
   label: string;
   value: StationName | null;
   onChange: (value: StationName) => void;
+  fit?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className={cn("flex flex-col gap-2", fit ? "w-fit max-w-full self-start" : "min-w-0")}>
       <Label htmlFor={id}>{label}</Label>
       <Select
         value={value}
@@ -101,10 +105,13 @@ function StationSelect({
           if (isStation(next)) onChange(next);
         }}
       >
-        <SelectTrigger id={id} className="min-h-11 w-full">
+        <SelectTrigger id={id} className={cn("min-h-11", fit ? "w-fit" : "w-full")}>
           <SelectValue placeholder="Choose a station" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent
+          className={fit ? "w-max" : undefined}
+          style={fit ? { width: "max-content", minWidth: "var(--anchor-width)" } : undefined}
+        >
           {STATES.map((state) => (
             <SelectGroup key={state}>
               <SelectLabel>{state}</SelectLabel>
@@ -114,7 +121,7 @@ function StationSelect({
                   <SelectItem
                     key={station.name}
                     value={station.name}
-                    className="min-h-11 cursor-pointer"
+                    className={cn("min-h-11 cursor-pointer", fit && "w-auto")}
                   >
                     {code(station.index)} {station.name}
                   </SelectItem>
@@ -315,11 +322,33 @@ function OutputCard({
 }
 
 export function FareApp() {
+  const search = useSearch({ from: "/" });
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("quote");
-  const [from, setFrom] = useState<StationName | null>(null);
-  const [to, setTo] = useState<StationName | null>(null);
-  const [passengers, setPassengers] = useState(1);
-  const [concessionId, setConcessionId] = useState<ConcessionId>("adult");
+  const [from, setFrom] = useState<StationName | null>(search.from ?? null);
+  const [to, setTo] = useState<StationName | null>(search.to ?? null);
+  const [passengers, setPassengers] = useState(search.passengers ?? 1);
+  const [concessionId, setConcessionId] = useState<ConcessionId>(search.concession ?? "adult");
+
+  useEffect(() => {
+    setFrom(search.from ?? null);
+    setTo(search.to ?? null);
+    setPassengers(search.passengers ?? 1);
+    setConcessionId(search.concession ?? "adult");
+  }, [search.from, search.to, search.passengers, search.concession]);
+
+  useEffect(() => {
+    const next = fareSearchParams({ from, to, passengers, concession: concessionId });
+    if (
+      next.from === search.from &&
+      next.to === search.to &&
+      next.passengers === search.passengers &&
+      next.concession === search.concession
+    ) {
+      return;
+    }
+    navigate({ to: "/", search: next, replace: true });
+  }, [from, to, passengers, concessionId, search, navigate]);
 
   const ready = from != null && to != null && from !== to;
   const path = useMemo(() => (ready ? pathBetween(from, to) : []), [ready, from, to]);
@@ -355,14 +384,14 @@ export function FareApp() {
             if (value === "quote" || value === "line" || value === "matrix") setTab(value);
           }}
         >
-          <TabsList className="grid h-11 w-full grid-cols-3 group-data-horizontal/tabs:h-11 lg:inline-flex lg:w-auto lg:group-data-horizontal/tabs:h-10">
-            <TabsTrigger value="quote" className="min-h-10 px-2 lg:min-w-28 lg:px-4">
+          <TabsList className="grid h-11 w-full grid-cols-3 group-data-horizontal/tabs:h-11 lg:inline-flex lg:w-fit lg:self-start lg:group-data-horizontal/tabs:h-10">
+            <TabsTrigger value="quote" className="min-h-10 px-3 lg:flex-none lg:px-4">
               Quote
             </TabsTrigger>
-            <TabsTrigger value="line" className="min-h-10 px-2 lg:min-w-28 lg:px-4">
+            <TabsTrigger value="line" className="min-h-10 px-3 lg:flex-none lg:px-4">
               From station
             </TabsTrigger>
-            <TabsTrigger value="matrix" className="min-h-10 px-2 lg:min-w-28 lg:px-4">
+            <TabsTrigger value="matrix" className="min-h-10 px-3 lg:flex-none lg:px-4">
               Matrix
             </TabsTrigger>
           </TabsList>
@@ -437,7 +466,11 @@ export function FareApp() {
                         }}
                       >
                         <SelectTrigger id="concession" className="min-h-11 w-full">
-                          <SelectValue />
+                          <SelectValue>
+                            {(value) =>
+                              concessions.find((item) => item.id === value)?.trigger ?? "Adult"
+                            }
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {concessions.map((item) => (
@@ -532,7 +565,7 @@ export function FareApp() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="gap-4">
-                <StationSelect id="line-from" label="From" value={from} onChange={setFrom} />
+                <StationSelect id="line-from" label="From" value={from} onChange={setFrom} fit />
                 {from == null ? (
                   <Empty className="border-0 px-2 py-8">
                     <EmptyHeader>

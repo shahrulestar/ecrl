@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:8080/",
+  "url": "http://127.0.0.1:8080/?from=Gombak&to=Bentong",
   "viewports": {
     "desktop": {
       "width": 1280,
@@ -7,8 +7,8 @@
       "status": 200,
       "title": "ECRL Fare Calculator",
       "hasCanvas": false,
-      "bodyTextLen": 806,
-      "bodyTextHash": "61547d972b2fab033c8a0cfff4f485e55072d5b6eb6354cd047e0d07f2593e2e",
+      "bodyTextLen": 974,
+      "bodyTextHash": "f4c6f403ef4e5f9c616b089695252bd4a5b258d70fc07e96130fb59edc430f8d",
       "bodyTextPrefix": "ECRL Fare Calculator Economy Transit starting fares, Gombak to K",
       "horizontalOverflow": false,
       "consoleErrors": [],
@@ -21,8 +21,8 @@
       "status": 200,
       "title": "ECRL Fare Calculator",
       "hasCanvas": false,
-      "bodyTextLen": 806,
-      "bodyTextHash": "61547d972b2fab033c8a0cfff4f485e55072d5b6eb6354cd047e0d07f2593e2e",
+      "bodyTextLen": 974,
+      "bodyTextHash": "f4c6f403ef4e5f9c616b089695252bd4a5b258d70fc07e96130fb59edc430f8d",
       "bodyTextPrefix": "ECRL Fare Calculator Economy Transit starting fares, Gombak to K",
       "horizontalOverflow": false,
       "consoleErrors": [],
