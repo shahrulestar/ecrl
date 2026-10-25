@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -62,17 +62,16 @@ import {
   stations,
   type StationName,
 } from "@/data/fares";
-import { fareSearchParams } from "@/lib/fare-search";
+import { fareSearchParams, parseFareSearch, partyFromSearch, PARTY_MAX, type Party } from "@/lib/fare-search";
 
 const STATES = ["Selangor", "Pahang", "Terengganu", "Kelantan"] as const;
 
-const concessions = [
-  { id: "adult", trigger: "Adult", label: "Adult", off: 0 },
-  { id: "student", trigger: "Student", label: "Student 13–24 · 40% off", off: 0.4 },
-  { id: "half", trigger: "Child, senior, OKU, pensioner", label: "Child, senior, OKU, pensioner · 50% off", off: 0.5 },
+const partyRates = [
+  { key: "adults", label: "Adult", hint: "Full fare", off: 0 },
+  { key: "students", label: "Student", hint: "13–24 · 40% off", off: 0.4 },
+  { key: "half", label: "Child, senior, OKU, pensioner", hint: "50% off", off: 0.5 },
 ] as const;
 
-type ConcessionId = (typeof concessions)[number]["id"];
 type TabId = "quote" | "line" | "matrix";
 
 function isStation(value: unknown): value is StationName {
@@ -162,26 +161,30 @@ function LineDots({ from, to }: { from: StationName; to: StationName }) {
   const hi = Math.max(a, b);
 
   return (
-    <ol className="flex items-center" aria-hidden="true">
+    <ol className="flex w-full items-center" aria-hidden="true">
       {stations.map((station, i) => {
         const on = i >= lo && i <= hi;
         const end = i === a || i === b;
+        const last = i === stations.length - 1;
         return (
-          <li key={station.name} className="flex min-w-0 flex-1 items-center">
+          <li
+            key={station.name}
+            className={cn("flex items-center", last ? "shrink-0" : "min-w-0 flex-1")}
+          >
             <span
               className={cn(
                 "size-2 shrink-0 rounded-full",
-                end ? "size-2.5 bg-primary" : on ? "bg-foreground/70" : "bg-border",
+                end ? "size-2.5 bg-primary" : on ? "bg-primary" : "bg-border",
               )}
             />
-            {i < stations.length - 1 ? (
+            {last ? null : (
               <span
                 className={cn(
-                  "h-px min-w-1 flex-1",
+                  "h-px min-w-0 flex-1",
                   i >= lo && i < hi ? "bg-foreground" : "bg-border",
                 )}
               />
-            ) : null}
+            )}
           </li>
         );
       })}
@@ -189,16 +192,62 @@ function LineDots({ from, to }: { from: StationName; to: StationName }) {
   );
 }
 
+function sen(amount: number) {
+  return Math.round(amount * 100) / 100;
+}
+
+function PartyCount({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-11"
+          aria-label={`Fewer ${label}`}
+          disabled={value <= 0}
+          onClick={() => onChange(value - 1)}
+        >
+          <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
+        </Button>
+        <span className="w-6 text-center text-sm font-medium">{value}</span>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-11"
+          aria-label={`More ${label}`}
+          disabled={value >= PARTY_MAX}
+          onClick={() => onChange(value + 1)}
+        >
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function OutputCard({
   from,
   to,
-  passengers,
-  concessionId,
+  party,
 }: {
   from: StationName | null;
   to: StationName | null;
-  passengers: number;
-  concessionId: ConcessionId;
+  party: Party;
 }) {
   if (!from || !to) {
     return (
@@ -268,13 +317,46 @@ function OutputCard({
     );
   }
 
-  const concession = concessions.find((item) => item.id === concessionId) ?? concessions[0];
+  const people = party.adults + party.students + party.half;
+  if (people === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Fare</CardTitle>
+          <CardDescription>
+            {from} to {to}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
+            <AlertTitle>No passengers</AlertTitle>
+            <AlertDescription>
+              Add at least one adult, student, or concession fare. Each type is priced on its own,
+              then added into the total.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const published = publishedJourney(from, to);
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
   const direction = stationIndex(from) < stationIndex(to) ? "Eastbound" : "Westbound";
-  const unit = fare * (1 - concession.off);
-  const total = unit * passengers;
+  const lines = partyRates
+    .map((rate) => {
+      const count = party[rate.key];
+      const each = sen(fare * (1 - rate.off));
+      return { ...rate, count, each, amount: sen(each * count) };
+    })
+    .filter((line) => line.count > 0);
+  const total = sen(lines.reduce((sum, line) => sum + line.amount, 0));
+  const hopSum = path.slice(1).reduce((sum, stop, i) => {
+    const hop = getFare(path[i].name, stop.name);
+    return sum + (hop ?? 0);
+  }, 0);
 
   return (
     <Card>
@@ -282,81 +364,126 @@ function OutputCard({
         <CardDescription>Starting fare · Economy Transit</CardDescription>
         <CardTitle className="font-heading text-4xl tracking-tight">{formatRm(total)}</CardTitle>
       </CardHeader>
-      <CardContent className="gap-3">
-        <p className="text-sm leading-relaxed">
-          {from} to {to}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {direction}
-          {between === 0
-            ? " · next station"
-            : ` · ${between} ${between === 1 ? "station" : "stations"} in between`}
-          {published ? ` · ${published.km} km` : null}
-        </p>
-        {concession.off > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Adult starting fare {formatRm(fare)}
-            {passengers > 1 ? `, ${formatRm(unit)} each after concession` : " before concession"}
+      <CardContent className="gap-8">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed">
+            {from} to {to}
           </p>
-        ) : null}
-        {passengers > 1 && concession.off === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {formatRm(fare)} × {passengers} passengers
+            {direction}
+            {between === 0
+              ? " · next station"
+              : ` · ${between} ${between === 1 ? "station" : "stations"} in between`}
+            {published ? ` · ${published.km} km` : null}
           </p>
-        ) : null}
-        {published ? (
-          <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-            <p>Transit {published.transitTime}</p>
-            <p>
-              Express starts at {formatRm(published.expressFare)} · {published.expressTime}
+          {lines.length > 1 || lines[0]?.off ? (
+            <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+              {lines.map((line) => (
+                <li key={line.key} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    {line.label} × {line.count}
+                    {line.off > 0 ? ` · ${line.hint}` : ""}
+                  </span>
+                  <span className="shrink-0">{formatRm(line.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : people > 1 ? (
+            <p className="text-sm text-muted-foreground">
+              {formatRm(fare)} × {people} adults
             </p>
-          </div>
-        ) : null}
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Published starting rate. Dynamic pricing can change the price by time, demand, and seats.
-          Return fare is the same.
-        </p>
+          ) : null}
+          {published ? (
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+              <p>Transit {published.transitTime}</p>
+              <p>
+                Express starts at {formatRm(published.expressFare)} · {published.expressTime}
+              </p>
+            </div>
+          ) : null}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Published starting rate. Dynamic pricing can change the price by time, demand, and seats.
+            Return fare is the same.
+          </p>
+        </div>
+        <Separator />
+        <div className="flex flex-col gap-5">
+          <LineDots from={from} to={to} />
+          <ol className="flex flex-col">
+            {path.map((stop, i) => {
+              const previous = path[i - 1];
+              const hop = previous ? getFare(previous.name, stop.name) : null;
+              return (
+                <li key={stop.name} className="relative flex gap-3 pb-4 last:pb-0">
+                  {i < path.length - 1 ? (
+                    <span className="absolute top-3 bottom-0 left-[4px] w-px bg-border" />
+                  ) : null}
+                  <span className="relative z-10 mt-1.5 size-2.5 shrink-0 rounded-full bg-primary" />
+                  <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{stop.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {code(stop.index)} · {stop.state}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm text-muted-foreground">
+                      {hop == null ? "Board" : formatRm(hop)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          {hopSum !== fare ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Adjacent hops add up to {formatRm(hopSum)}. The through fare is {formatRm(fare)}, which
+              is the published station-to-station rate, not the sum of hops.
+            </p>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
 }
 
 export function FareApp() {
-  const search = useSearch({ from: "/" });
-  const navigate = useNavigate();
+  const params = useSearchParams();
+  const router = useRouter();
+  const query = params.toString();
+  const search = useMemo(
+    () => parseFareSearch(Object.fromEntries(new URLSearchParams(query))),
+    [query],
+  );
   const [tab, setTab] = useState<TabId>("quote");
   const [from, setFrom] = useState<StationName | null>(search.from ?? null);
   const [to, setTo] = useState<StationName | null>(search.to ?? null);
-  const [passengers, setPassengers] = useState(search.passengers ?? 1);
-  const [concessionId, setConcessionId] = useState<ConcessionId>(search.concession ?? "adult");
+  const [party, setParty] = useState<Party>(() => partyFromSearch(search));
 
   useEffect(() => {
     setFrom(search.from ?? null);
     setTo(search.to ?? null);
-    setPassengers(search.passengers ?? 1);
-    setConcessionId(search.concession ?? "adult");
-  }, [search.from, search.to, search.passengers, search.concession]);
+    setParty(partyFromSearch(search));
+  }, [search]);
 
   useEffect(() => {
-    const next = fareSearchParams({ from, to, passengers, concession: concessionId });
+    const next = fareSearchParams({ from, to, party });
     if (
       next.from === search.from &&
       next.to === search.to &&
-      next.passengers === search.passengers &&
-      next.concession === search.concession
+      next.adults === search.adults &&
+      next.students === search.students &&
+      next.half === search.half
     ) {
       return;
     }
-    navigate({ to: "/", search: next, replace: true });
-  }, [from, to, passengers, concessionId, search, navigate]);
-
-  const ready = from != null && to != null && from !== to;
-  const path = useMemo(() => (ready ? pathBetween(from, to) : []), [ready, from, to]);
-  const through = ready ? getFare(from, to) : null;
-  const hopSum = path.slice(1).reduce((sum, stop, i) => {
-    const hop = getFare(path[i].name, stop.name);
-    return sum + (hop ?? 0);
-  }, 0);
+    const qs = new URLSearchParams();
+    if (next.from) qs.set("from", next.from);
+    if (next.to) qs.set("to", next.to);
+    if (next.adults !== undefined) qs.set("adults", String(next.adults));
+    if (next.students !== undefined) qs.set("students", String(next.students));
+    if (next.half !== undefined) qs.set("half", String(next.half));
+    router.replace(qs.size ? `/?${qs.toString()}` : "/", { scroll: false });
+  }, [from, to, party, search, router]);
 
   function openPair(origin: StationName, destination: StationName) {
     setFrom(origin);
@@ -397,8 +524,8 @@ export function FareApp() {
           </TabsList>
 
           <TabsContent value="quote" className="pt-4">
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-              <Card className="lg:col-start-1">
+            <div className="flex flex-col gap-6">
+              <Card>
                 <CardHeader>
                   <CardTitle>Journey</CardTitle>
                   <CardDescription>Pick any two of the 16 stations.</CardDescription>
@@ -428,129 +555,23 @@ export function FareApp() {
 
                   <Separator className="my-4" />
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <Label>Passengers</Label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="size-11"
-                          aria-label="Fewer passengers"
-                          disabled={passengers <= 1}
-                          onClick={() => setPassengers((n) => Math.max(1, n - 1))}
-                        >
-                          <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
-                        </Button>
-                        <span className="w-8 text-center text-sm font-medium">{passengers}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="size-11"
-                          aria-label="More passengers"
-                          disabled={passengers >= 9}
-                          onClick={() => setPassengers((n) => Math.min(9, n + 1))}
-                        >
-                          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex min-w-0 flex-col gap-2">
-                      <Label htmlFor="concession">Concession</Label>
-                      <Select
-                        value={concessionId}
-                        onValueChange={(value) => {
-                          if (concessions.some((item) => item.id === value)) {
-                            setConcessionId(value as ConcessionId);
-                          }
-                        }}
-                      >
-                        <SelectTrigger id="concession" className="min-h-11 w-full">
-                          <SelectValue>
-                            {(value) =>
-                              concessions.find((item) => item.id === value)?.trigger ?? "Adult"
-                            }
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {concessions.map((item) => (
-                            <SelectItem
-                              key={item.id}
-                              value={item.id}
-                              className="min-h-11 cursor-pointer"
-                            >
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {partyRates.map((rate) => (
+                      <PartyCount
+                        key={rate.key}
+                        label={rate.label}
+                        hint={rate.hint}
+                        value={party[rate.key]}
+                        onChange={(next) =>
+                          setParty((current) => ({ ...current, [rate.key]: next }))
+                        }
+                      />
+                    ))}
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-                <OutputCard
-                  from={from}
-                  to={to}
-                  passengers={passengers}
-                  concessionId={concessionId}
-                />
-              </div>
-
-              {ready && through != null ? (
-                <Card className="lg:col-start-1">
-                  <CardHeader>
-                    <CardTitle>Route</CardTitle>
-                    <CardDescription>
-                      {code(stations[stationIndex(from)].index)} {from} →{" "}
-                      {code(stations[stationIndex(to)].index)} {to}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="gap-5">
-                    <LineDots from={from} to={to} />
-                    <ol className="flex flex-col">
-                      {path.map((stop, i) => {
-                        const previous = path[i - 1];
-                        const hop = previous ? getFare(previous.name, stop.name) : null;
-                        return (
-                          <li key={stop.name} className="relative flex gap-3 pb-4 last:pb-0">
-                            {i < path.length - 1 ? (
-                              <span className="absolute top-3 bottom-0 left-[4px] w-px bg-border" />
-                            ) : null}
-                            <span
-                              className={cn(
-                                "relative z-10 mt-1.5 size-2.5 shrink-0 rounded-full",
-                                i === 0 || i === path.length - 1
-                                  ? "bg-primary"
-                                  : "bg-muted-foreground",
-                              )}
-                            />
-                            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">{stop.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {code(stop.index)} · {stop.state}
-                                </p>
-                              </div>
-                              <p className="shrink-0 text-sm text-muted-foreground">
-                                {hop == null ? "Board" : formatRm(hop)}
-                              </p>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                    {hopSum !== through ? (
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Adjacent hops add up to {formatRm(hopSum)}. The through fare is{" "}
-                        {formatRm(through)}, which is the published station-to-station rate, not the
-                        sum of hops.
-                      </p>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              ) : null}
+              <OutputCard from={from} to={to} party={party} />
             </div>
           </TabsContent>
 
