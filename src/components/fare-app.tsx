@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
+  ArrowUp01Icon,
   AlertCircleIcon,
   ArrowLeftRightIcon,
   ArrowUpDownIcon,
@@ -17,6 +18,14 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Card,
   CardContent,
@@ -41,7 +50,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -53,7 +61,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
-  fareMeta,
   formatRm,
   getFare,
   pathBetween,
@@ -62,15 +69,27 @@ import {
   stations,
   type StationName,
 } from "@/data/fares";
-import { fareSearchParams, parseFareSearch, partyFromSearch, PARTY_MAX, type Party } from "@/lib/fare-search";
+import {
+  fareSearchParams,
+  fareSearchParsers,
+  partyFromSearch,
+  PARTY_MAX,
+  type Party,
+} from "@/lib/fare-search";
 
 const STATES = ["Selangor", "Pahang", "Terengganu", "Kelantan"] as const;
 
 const partyRates = [
   { key: "adults", label: "Adult", hint: "Full fare", off: 0 },
-  { key: "students", label: "Student", hint: "13–24 · 40% off", off: 0.4 },
+  { key: "students", label: "Student", hint: "Aged 13–24 · 40% off", off: 0.4 },
   { key: "half", label: "Child, senior, OKU, pensioner", hint: "50% off", off: 0.5 },
 ] as const;
+
+const footnotes = [
+  "Return trips cost the same as the trip out.",
+  "ECRL uses dynamic pricing. These are the announced starting prices, and the real price can change with demand, time, and how many seats are left.",
+  "Student and concession prices are the starting fare with the announced 40% or 50% taken off. They aren't live ticket prices.",
+];
 
 type TabId = "quote" | "line" | "matrix";
 
@@ -105,7 +124,7 @@ function StationSelect({
         }}
       >
         <SelectTrigger id={id} className={cn("min-h-11", fit ? "w-fit" : "w-full")}>
-          <SelectValue placeholder="Choose a station" />
+          <SelectValue placeholder="Pick a station" />
         </SelectTrigger>
         <SelectContent
           className={fit ? "w-max" : undefined}
@@ -181,7 +200,7 @@ function LineDots({ from, to }: { from: StationName; to: StationName }) {
               <span
                 className={cn(
                   "h-px min-w-0 flex-1",
-                  i >= lo && i < hi ? "bg-foreground" : "bg-border",
+                  i >= lo && i < hi ? "bg-primary" : "bg-border",
                 )}
               />
             )}
@@ -218,7 +237,7 @@ function PartyCount({
           variant="outline"
           size="icon"
           className="size-11"
-          aria-label={`Fewer ${label}`}
+          aria-label={`One less: ${label}`}
           disabled={value <= 0}
           onClick={() => onChange(value - 1)}
         >
@@ -229,7 +248,7 @@ function PartyCount({
           variant="outline"
           size="icon"
           className="size-11"
-          aria-label={`More ${label}`}
+          aria-label={`One more: ${label}`}
           disabled={value >= PARTY_MAX}
           onClick={() => onChange(value + 1)}
         >
@@ -254,7 +273,7 @@ function OutputCard({
       <Card>
         <CardHeader>
           <CardTitle>Fare</CardTitle>
-          <CardDescription>Your quote shows up here.</CardDescription>
+          <CardDescription>Your fare shows up here.</CardDescription>
         </CardHeader>
         <CardContent>
           <Empty className="border-0 px-2 py-8">
@@ -264,7 +283,8 @@ function OutputCard({
               </EmptyMedia>
               <EmptyTitle>No fare yet</EmptyTitle>
               <EmptyDescription>
-                Choose a from station and a to station to see the Economy Transit starting fare.
+                Pick where you get on and where you get off to see the Economy Transit starting
+                fare.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -283,10 +303,9 @@ function OutputCard({
         <CardContent>
           <Alert variant="destructive">
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
-            <AlertTitle>Same station</AlertTitle>
+            <AlertTitle>Same station twice</AlertTitle>
             <AlertDescription>
-              Pick two different stations. A fare needs a journey, and {from} to {from} is not a
-              trip.
+              You picked {from} for both ends. Choose a different station to get off at.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -307,9 +326,10 @@ function OutputCard({
         <CardContent>
           <Alert variant="destructive">
             <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
-            <AlertTitle>No published fare</AlertTitle>
+            <AlertTitle>No fare listed</AlertTitle>
             <AlertDescription>
-              There is no Economy Transit starting fare for {from} to {to}. Try another pair.
+              The fare table doesn&apos;t list an Economy Transit starting fare for {from} to {to}.
+              Try another pair of stations.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -332,8 +352,8 @@ function OutputCard({
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>No passengers</AlertTitle>
             <AlertDescription>
-              Add at least one adult, student, or concession fare. Each type is priced on its own,
-              then added into the total.
+              Add at least one adult, student, or concession passenger. Each type has its own
+              price, and the total adds them up.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -358,13 +378,13 @@ function OutputCard({
     return sum + (hop ?? 0);
   }, 0);
 
-  return (
-    <Card>
+  const renderCard = (className?: string) => (
+    <Card className={className}>
       <CardHeader>
         <CardDescription>Starting fare · Economy Transit</CardDescription>
-        <CardTitle className="font-heading text-4xl tracking-tight">{formatRm(total)}</CardTitle>
+        <CardTitle className="font-heading text-4xl font-semibold tracking-tight">{formatRm(total)}</CardTitle>
       </CardHeader>
-      <CardContent className="gap-8">
+      <CardContent className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-relaxed">
             {from} to {to}
@@ -372,8 +392,8 @@ function OutputCard({
           <p className="text-sm text-muted-foreground">
             {direction}
             {between === 0
-              ? " · next station"
-              : ` · ${between} ${between === 1 ? "station" : "stations"} in between`}
+              ? " · next stop"
+              : ` · ${between} ${between === 1 ? "stop" : "stops"} in between`}
             {published ? ` · ${published.km} km` : null}
           </p>
           {lines.length > 1 || lines[0]?.off ? (
@@ -395,18 +415,17 @@ function OutputCard({
           ) : null}
           {published ? (
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-              <p>Transit {published.transitTime}</p>
+              <p>Transit takes {published.transitTime}</p>
               <p>
-                Express starts at {formatRm(published.expressFare)} · {published.expressTime}
+                Express from {formatRm(published.expressFare)}, takes {published.expressTime}
               </p>
             </div>
           ) : null}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Published starting rate. Dynamic pricing can change the price by time, demand, and seats.
-            Return fare is the same.
+            This is the published starting price. The real price can change with the time, demand,
+            and seats left. The return trip costs the same.
           </p>
         </div>
-        <Separator />
         <div className="flex flex-col gap-5">
           <LineDots from={from} to={to} />
           <ol className="flex flex-col">
@@ -416,7 +435,7 @@ function OutputCard({
               return (
                 <li key={stop.name} className="relative flex gap-3 pb-4 last:pb-0">
                   {i < path.length - 1 ? (
-                    <span className="absolute top-3 bottom-0 left-[4px] w-px bg-border" />
+                    <span className="absolute top-[11px] -bottom-[11px] left-[4.5px] w-px bg-primary" />
                   ) : null}
                   <span className="relative z-10 mt-1.5 size-2.5 shrink-0 rounded-full bg-primary" />
                   <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
@@ -436,73 +455,91 @@ function OutputCard({
           </ol>
           {hopSum !== fare ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Adjacent hops add up to {formatRm(hopSum)}. The through fare is {formatRm(fare)}, which
-              is the published station-to-station rate, not the sum of hops.
+              The stop-by-stop fares add up to {formatRm(hopSum)}, but the published fare for the
+              whole trip is {formatRm(fare)}.
             </p>
           ) : null}
         </div>
       </CardContent>
     </Card>
   );
+
+  return (
+    <>
+      {renderCard("max-md:hidden")}
+      <Drawer>
+        <DrawerTrigger
+          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-left shadow-[0_-4px_12px_rgb(0_0_0/0.06)] md:hidden"
+          aria-label={`Fare ${formatRm(total)}, ${from} to ${to}. Open full breakdown`}
+        >
+          <span className="flex min-w-0 flex-col">
+            <span className="text-xs text-muted-foreground">Starting fare</span>
+            <span className="truncate text-sm font-medium">
+              {from} to {to}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            <span className="text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
+            <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+          </span>
+        </DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Fare breakdown</DrawerTitle>
+            <DrawerDescription>
+              {from} to {to}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="max-h-[70dvh] overflow-y-auto px-2 pb-4">
+            {renderCard("border-0 ring-0")}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
 }
 
 export function FareApp() {
-  const params = useSearchParams();
-  const router = useRouter();
-  const query = params.toString();
-  const search = useMemo(
-    () => parseFareSearch(Object.fromEntries(new URLSearchParams(query))),
-    [query],
-  );
+  const [query, setQuery] = useQueryStates(fareSearchParsers);
   const [tab, setTab] = useState<TabId>("quote");
-  const [from, setFrom] = useState<StationName | null>(search.from ?? null);
-  const [to, setTo] = useState<StationName | null>(search.to ?? null);
-  const [party, setParty] = useState<Party>(() => partyFromSearch(search));
+  const { from, to } = query;
+  const party = partyFromSearch({
+    adults: query.adults ?? undefined,
+    students: query.students ?? undefined,
+    half: query.half ?? undefined,
+  });
 
-  useEffect(() => {
-    setFrom(search.from ?? null);
-    setTo(search.to ?? null);
-    setParty(partyFromSearch(search));
-  }, [search]);
+  function setFrom(value: StationName | null) {
+    setQuery({ from: value });
+  }
 
-  useEffect(() => {
-    const next = fareSearchParams({ from, to, party });
-    if (
-      next.from === search.from &&
-      next.to === search.to &&
-      next.adults === search.adults &&
-      next.students === search.students &&
-      next.half === search.half
-    ) {
-      return;
-    }
-    const qs = new URLSearchParams();
-    if (next.from) qs.set("from", next.from);
-    if (next.to) qs.set("to", next.to);
-    if (next.adults !== undefined) qs.set("adults", String(next.adults));
-    if (next.students !== undefined) qs.set("students", String(next.students));
-    if (next.half !== undefined) qs.set("half", String(next.half));
-    router.replace(qs.size ? `/?${qs.toString()}` : "/", { scroll: false });
-  }, [from, to, party, search, router]);
+  function setTo(value: StationName | null) {
+    setQuery({ to: value });
+  }
+
+  function setParty(update: (current: Party) => Party) {
+    const next = fareSearchParams({ from, to, party: update(party) });
+    setQuery({
+      adults: next.adults ?? null,
+      students: next.students ?? null,
+      half: next.half ?? null,
+    });
+  }
 
   function openPair(origin: StationName, destination: StationName) {
-    setFrom(origin);
-    setTo(destination);
+    setQuery({ from: origin, to: destination });
     setTab("quote");
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="mx-auto flex max-w-page flex-col gap-6 px-4 py-6 md:px-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">ECRL Fare Calculator</h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Economy Transit starting fares, Gombak to Kota Bharu. Same rate both ways. Kadar
-              permulaan Kelas Ekonomi.
-            </p>
-          </div>
-          <ThemeToggle />
+    <div className="flex min-h-screen flex-col bg-background">
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 px-4 pt-6 pb-6 md:px-6 md:pb-10">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">ECRL Fare Calculator</h1>
+          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Check the Economy Transit starting fare between any two stations, Gombak to Kota
+            Bharu. It costs the same in both directions.
+          </p>
         </div>
 
         <Tabs
@@ -511,15 +548,15 @@ export function FareApp() {
             if (value === "quote" || value === "line" || value === "matrix") setTab(value);
           }}
         >
-          <TabsList className="grid h-11 w-full grid-cols-3 group-data-horizontal/tabs:h-11 lg:inline-flex lg:w-fit lg:self-start lg:group-data-horizontal/tabs:h-10">
-            <TabsTrigger value="quote" className="min-h-10 px-3 lg:flex-none lg:px-4">
-              Quote
+          <TabsList className="grid w-full grid-cols-3 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
+            <TabsTrigger value="quote" className="px-3">
+              Your trip
             </TabsTrigger>
-            <TabsTrigger value="line" className="min-h-10 px-3 lg:flex-none lg:px-4">
-              From station
+            <TabsTrigger value="line" className="px-3">
+              By station
             </TabsTrigger>
-            <TabsTrigger value="matrix" className="min-h-10 px-3 lg:flex-none lg:px-4">
-              Matrix
+            <TabsTrigger value="matrix" className="px-3">
+              Fare table
             </TabsTrigger>
           </TabsList>
 
@@ -527,10 +564,10 @@ export function FareApp() {
             <div className="flex flex-col gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Journey</CardTitle>
+                  <CardTitle>Where are you going?</CardTitle>
                   <CardDescription>Pick any two of the 16 stations.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col gap-8">
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
                     <StationSelect id="from" label="From" value={from} onChange={setFrom} />
                     <Button
@@ -552,8 +589,6 @@ export function FareApp() {
                     </Button>
                     <StationSelect id="to" label="To" value={to} onChange={setTo} />
                   </div>
-
-                  <Separator className="my-4" />
 
                   <div className="grid gap-3 md:grid-cols-3">
                     {partyRates.map((rate) => (
@@ -581,11 +616,11 @@ export function FareApp() {
                 <CardTitle>Fares from one station</CardTitle>
                 <CardDescription>
                   {from
-                    ? `All destinations from ${from}, in line order. Tap a row to quote it.`
-                    : "Choose a station, then tap a destination to quote it."}
+                    ? `Every stop from ${from}, in line order. Tap one to see the full fare.`
+                    : "Pick a station, then tap where you're going to see the full fare."}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="gap-4">
+              <CardContent className="flex flex-col gap-2">
                 <StationSelect id="line-from" label="From" value={from} onChange={setFrom} fit />
                 {from == null ? (
                   <Empty className="border-0 px-2 py-8">
@@ -593,9 +628,9 @@ export function FareApp() {
                       <EmptyMedia variant="icon">
                         <HugeiconsIcon icon={Train01Icon} strokeWidth={2} />
                       </EmptyMedia>
-                      <EmptyTitle>No station selected</EmptyTitle>
+                      <EmptyTitle>No station picked yet</EmptyTitle>
                       <EmptyDescription>
-                        Pick a from station to list the starting fare to every other stop.
+                        Choose where you&apos;re starting to see the fare to every other stop.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -618,10 +653,10 @@ export function FareApp() {
                                 {code(station.index)} {station.name}
                               </span>
                               <span className="block text-xs font-normal text-muted-foreground">
-                                {station.state} · {hops} {hops === 1 ? "hop" : "hops"}
+                                {station.state} · {hops} {hops === 1 ? "stop" : "stops"} away
                               </span>
                             </span>
-                            <span className="shrink-0 text-sm font-medium">
+                            <span className="shrink-0 text-xl font-medium">
                               {fare == null ? "—" : formatRm(fare)}
                             </span>
                           </Button>
@@ -636,18 +671,17 @@ export function FareApp() {
           <TabsContent value="matrix" className="pt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Fare matrix</CardTitle>
+                <CardTitle>Fare table</CardTitle>
                 <CardDescription>
-                  Starting fares in ringgit. The row is where you board and the column is where you
-                  get off, in line order from 01 Gombak to 16 Kota Bharu. Tap a price to open that
-                  quote.
+                  Starting fares in ringgit. Board on the left, get off along the top. Tap a price
+                  for the full fare.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table className="w-full min-w-[44rem] text-sm lg:min-w-full lg:table-fixed">
                   <caption className="sr-only">
-                    Economy Transit starting fares. Rows are boarding stations and columns are
-                    alighting stations, 01 Gombak through 16 Kota Bharu.
+                    Economy Transit starting fares. Rows are where you get on and columns are where
+                    you get off, 01 Gombak to 16 Kota Bharu.
                   </caption>
                   <TableHeader>
                     <TableRow>
@@ -671,14 +705,14 @@ export function FareApp() {
                           return (
                             <TableCell key={destination.name} className="p-1 text-center">
                               {fare == null ? (
-                                <span className="inline-flex min-h-9 w-full items-center justify-center text-muted-foreground">
+                                <span className="mx-auto flex size-9 items-center justify-center text-muted-foreground lg:w-full">
                                   —
                                 </span>
                               ) : (
                                 <Button
                                   size="sm"
                                   variant={selected ? "default" : "ghost"}
-                                  className="min-h-9 w-full px-1"
+                                  className="mx-auto flex size-9 px-0 lg:w-full lg:px-1"
                                   onClick={() => openPair(origin.name, destination.name)}
                                   aria-label={`${origin.name} to ${destination.name}, ${formatRm(fare)}`}
                                 >
@@ -697,16 +731,28 @@ export function FareApp() {
           </TabsContent>
         </Tabs>
 
-        <ul className="flex max-w-2xl flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
-          {fareMeta.notes.slice(0, 3).map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-          <li>
-            Concession figures apply the announced 40% and 50% discounts to the starting fare. They
-            are not a live ticket price.
-          </li>
-        </ul>
       </main>
+      <footer className="mt-auto border-t max-md:pb-24">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 py-6 md:px-6">
+          <ul className="flex max-w-2xl flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
+            {footnotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              Built by{" "}
+              <a
+                href="https://shahrulestar.com"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                shahrulestar.com
+              </a>
+            </p>
+            <ThemeToggle />
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

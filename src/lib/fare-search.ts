@@ -1,6 +1,22 @@
+import { createParser, parseAsStringLiteral } from "nuqs/server";
 import { stations, type StationName } from "@/data/fares";
 
 export const PARTY_MAX = 9;
+
+const stationNames = stations.map((station) => station.name);
+
+const parseAsPartyCount = createParser({
+  parse: (value) => clampCount(value) ?? 0,
+  serialize: String,
+});
+
+export const fareSearchParsers = {
+  from: parseAsStringLiteral(stationNames),
+  to: parseAsStringLiteral(stationNames),
+  adults: parseAsPartyCount,
+  students: parseAsPartyCount,
+  half: parseAsPartyCount,
+};
 
 export type Party = {
   adults: number;
@@ -76,4 +92,13 @@ export function fareSearchParams(input: {
     students: students === 0 ? undefined : students,
     half: half === 0 ? undefined : half,
   };
+}
+
+export function fareQueryString(search: FareSearch): string {
+  const qs = new URLSearchParams();
+  for (const key of ["from", "to", "adults", "students", "half"] as const) {
+    const value = search[key];
+    if (value !== undefined) qs.set(key, String(value));
+  }
+  return qs.toString();
 }

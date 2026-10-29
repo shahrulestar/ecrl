@@ -1,59 +1,92 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { headers } from "next/headers";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/theme-provider";
-import { publicShareHost } from "@/lib/share-host";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans",
 });
 
-const title = "ECRL Fare Calculator";
+const title = "ECRL Fare Calculator: Gombak to Kota Bharu";
 const description =
-  "Starting fares for ECRL Economy Transit between all 16 stations, Gombak to Kota Bharu.";
+  "Check the Economy Transit starting fare between any two of the 16 stations, from Gombak to Kota Bharu. It costs the same in both directions.";
 
-async function shareHost() {
-  const fromEnv = publicShareHost(process.env.VITE_PUBLIC_HOSTNAME);
-  if (fromEnv) return fromEnv;
-  const requestHeaders = await headers();
-  return publicShareHost(requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"));
-}
+const url = siteUrl();
 
-export async function generateMetadata(): Promise<Metadata> {
-  const host = await shareHost();
-  return {
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "ECRL Fare Calculator",
+  description,
+  applicationCategory: "TravelApplication",
+  operatingSystem: "Web",
+  inLanguage: "en-MY",
+  isAccessibleForFree: true,
+  ...(url ? { url: url.href } : {}),
+};
+
+export const metadata: Metadata = {
+  ...(url ? { metadataBase: url } : {}),
+  title: {
+    absolute: title,
+  },
+  description,
+  applicationName: "ECRL Fare Calculator",
+  category: "travel",
+  keywords: [
+    "ECRL fare",
+    "ECRL fare calculator",
+    "Economy Transit",
+    "Gombak to Kota Bharu",
+    "East Coast Rail Link",
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  alternates: { canonical: "/" },
+  openGraph: {
     title,
     description,
-    icons: { icon: "/favicon.svg" },
-    openGraph: host
-      ? {
-          title,
-          description,
-          images: [{ url: `https://${host}/og.jpg`, width: 1200, height: 630 }],
-        }
-      : { title, description },
-  };
-}
+    type: "website",
+    locale: "en_MY",
+    siteName: "ECRL Fare Calculator",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+};
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: "#2563EB",
   width: "device-width",
   initialScale: 1,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const host = await shareHost();
-  const xBanner = host ? `https://${host}/x-banner.jpg` : "";
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <head>{xBanner ? <meta property="x:game:image" content={xBanner} /> : null}</head>
+    <html lang="en-MY" className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
-        <PreviewHostBridge />
-        <ThemeProvider>{children}</ThemeProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <ThemeProvider>
+          <NuqsAdapter>{children}</NuqsAdapter>
+        </ThemeProvider>
       </body>
     </html>
   );
