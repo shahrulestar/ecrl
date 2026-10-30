@@ -486,10 +486,9 @@ function OutputCard({
       {renderCard("max-md:hidden")}
       <Drawer>
         <DrawerTrigger
-          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] active:bg-muted/50 md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
           aria-label={`Fare ${formatRm(total)}, ${from} to ${to}. Open full breakdown`}
         >
-          <span aria-hidden className="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/30" />
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Starting fare</span>
             <span className="truncate text-sm font-medium">
