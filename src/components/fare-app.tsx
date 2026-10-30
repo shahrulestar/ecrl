@@ -7,6 +7,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowUp01Icon,
+  Copy01Icon,
+  Tick02Icon,
   AlertCircleIcon,
   ArrowLeftRightIcon,
   ArrowUpDownIcon,
@@ -21,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -70,8 +71,10 @@ import {
   type StationName,
 } from "@/data/fares";
 import {
+  fareQueryString,
   fareSearchParams,
   fareSearchParsers,
+  parseFareSearch,
   partyFromSearch,
   PARTY_MAX,
   type Party,
@@ -127,7 +130,10 @@ function StationSelect({
           <SelectValue placeholder="Pick a station" />
         </SelectTrigger>
         <SelectContent
-          className={fit ? "w-max" : undefined}
+          side="bottom"
+          align="start"
+          alignItemWithTrigger={false}
+          className={cn("max-h-[min(18rem,var(--available-height))]", fit && "w-max")}
           style={fit ? { width: "max-content", minWidth: "var(--anchor-width)" } : undefined}
         >
           {STATES.map((state) => (
@@ -168,7 +174,18 @@ function ThemeToggle() {
       aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
       onClick={() => setTheme(dark ? "light" : "dark")}
     >
-      <HugeiconsIcon icon={dark ? Sun01Icon : Moon01Icon} strokeWidth={2} />
+      <span className="relative size-4">
+        <HugeiconsIcon
+          icon={Sun01Icon}
+          strokeWidth={2}
+          className="absolute inset-0 size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"
+        />
+        <HugeiconsIcon
+          icon={Moon01Icon}
+          strokeWidth={2}
+          className="absolute inset-0 size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
+        />
+      </span>
     </Button>
   );
 }
@@ -385,11 +402,11 @@ function OutputCard({
         <CardTitle className="font-heading text-4xl font-semibold tracking-tight">{formatRm(total)}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
-        <div className="flex flex-col gap-3">
-          <p className="text-sm leading-relaxed">
+        <div className="flex flex-col gap-2 md:gap-3">
+          <p className="text-sm leading-relaxed max-md:text-xs/relaxed max-md:font-medium">
             {from} to {to}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground max-md:text-xs/relaxed">
             {direction}
             {between === 0
               ? " · next stop"
@@ -397,7 +414,7 @@ function OutputCard({
             {published ? ` · ${published.km} km` : null}
           </p>
           {lines.length > 1 || lines[0]?.off ? (
-            <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <ul className="flex flex-col gap-1 text-sm text-muted-foreground max-md:text-xs/relaxed">
               {lines.map((line) => (
                 <li key={line.key} className="flex items-baseline justify-between gap-3">
                   <span>
@@ -414,14 +431,14 @@ function OutputCard({
             </p>
           ) : null}
           {published ? (
-            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground max-md:text-xs/relaxed">
               <p>Transit takes {published.transitTime}</p>
               <p>
                 Express from {formatRm(published.expressFare)}, takes {published.expressTime}
               </p>
             </div>
           ) : null}
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-xs leading-relaxed text-muted-foreground max-md:text-[11px] max-md:leading-snug">
             This is the published starting price. The real price can change with the time, demand,
             and seats left. The return trip costs the same.
           </p>
@@ -469,29 +486,31 @@ function OutputCard({
       {renderCard("max-md:hidden")}
       <Drawer>
         <DrawerTrigger
-          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-left shadow-[0_-4px_12px_rgb(0_0_0/0.06)] md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] active:bg-muted/50 md:hidden"
           aria-label={`Fare ${formatRm(total)}, ${from} to ${to}. Open full breakdown`}
         >
-          <span className="flex min-w-0 flex-col">
+          <span aria-hidden className="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/30" />
+          <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Starting fare</span>
             <span className="truncate text-sm font-medium">
               {from} to {to}
             </span>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              View full breakdown
+              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5" />
+            </span>
           </span>
-          <span className="flex shrink-0 items-center gap-2">
-            <span className="text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
-            <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
-          </span>
+          <span className="shrink-0 text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
         </DrawerTrigger>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>Fare breakdown</DrawerTitle>
-            <DrawerDescription>
-              {from} to {to}
-            </DrawerDescription>
           </DrawerHeader>
-          <div className="max-h-[70dvh] overflow-y-auto px-2 pb-4">
+          <div className="scroll-fade max-h-[70dvh] overflow-y-auto px-2 pb-4">
             {renderCard("border-0 ring-0")}
+          </div>
+          <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <CopyLinkButton />
           </div>
         </DrawerContent>
       </Drawer>
@@ -499,9 +518,51 @@ function OutputCard({
   );
 }
 
+function CopyLinkButton() {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this link", window.location.href);
+    }
+  }
+
+  return (
+    <Button type="button" className="h-11 w-full text-sm [&_svg:not([class*='size-'])]:size-4" onClick={copy}>
+      <HugeiconsIcon icon={copied ? Tick02Icon : Copy01Icon} strokeWidth={2} data-icon="inline-start" />
+      <span aria-live="polite">{copied ? "Link copied" : "Copy link"}</span>
+    </Button>
+  );
+}
+
 export function FareApp() {
   const [query, setQuery] = useQueryStates(fareSearchParsers);
   const [tab, setTab] = useState<TabId>("quote");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("passengers") && !params.has("concession")) return;
+
+    const search = parseFareSearch(Object.fromEntries(params.entries()));
+    const normalized = fareSearchParams({
+      from: search.from ?? null,
+      to: search.to ?? null,
+      party: partyFromSearch(search),
+    });
+    const qs = fareQueryString(normalized);
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    void setQuery({
+      from: normalized.from ?? null,
+      to: normalized.to ?? null,
+      adults: normalized.adults ?? null,
+      students: normalized.students ?? null,
+      half: normalized.half ?? null,
+    });
+  }, [setQuery]);
   const { from, to } = query;
   const party = partyFromSearch({
     adults: query.adults ?? undefined,
@@ -572,7 +633,8 @@ export function FareApp() {
                     <StationSelect id="from" label="From" value={from} onChange={setFrom} />
                     <Button
                       variant="outline"
-                      className="min-h-11"
+                      size="icon"
+                      className="size-11 justify-self-center"
                       aria-label="Swap stations"
                       onClick={() => {
                         setFrom(to);
@@ -585,7 +647,6 @@ export function FareApp() {
                         strokeWidth={2}
                         className="hidden sm:block"
                       />
-                      Swap
                     </Button>
                     <StationSelect id="to" label="To" value={to} onChange={setTo} />
                   </div>
@@ -732,7 +793,7 @@ export function FareApp() {
         </Tabs>
 
       </main>
-      <footer className="mt-auto border-t max-md:pb-24">
+      <footer className="mt-auto border-t max-md:pb-32">
         <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 py-6 md:px-6">
           <ul className="flex max-w-2xl flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
             {footnotes.map((note) => (

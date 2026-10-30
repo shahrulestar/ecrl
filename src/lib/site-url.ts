@@ -1,5 +1,8 @@
 export function siteUrl(): URL | null {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.CF_PAGES_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL;
   if (!raw) return null;
 
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
