@@ -431,6 +431,10 @@ export function formatRm(amount: number): string {
   return Number.isInteger(amount) ? `RM${amount}` : `RM${amount.toFixed(2)}`;
 }
 
+export function formatAmount(amount: number): string {
+  return Number.isInteger(amount) ? `${amount}` : amount.toFixed(2);
+}
+
 /** First-month launch rate for Malaysian citizens. Dates are inclusive, Malaysia time. */
 export const launchPromo = {
   off: 0.3,

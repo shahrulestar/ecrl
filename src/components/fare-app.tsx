@@ -18,7 +18,6 @@ import {
   Sun01Icon,
   Train01Icon,
 } from "@hugeicons/core-free-icons";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +58,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   effectiveOff,
+  formatAmount,
   formatRm,
   getFare,
   launchPromo,
@@ -264,6 +264,15 @@ function LineDots({ from, to }: { from: StationName; to: StationName }) {
   );
 }
 
+function FarePrice({ amount, className }: { amount: number; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-baseline gap-[0.15em] tabular-nums", className)}>
+      <span>RM</span>
+      <span>{formatAmount(amount)}</span>
+    </span>
+  );
+}
+
 function sen(amount: number) {
   return Math.round(amount * 100) / 100;
 }
@@ -296,7 +305,7 @@ function PartyCount({
         >
           <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
         </Button>
-        <span className="w-6 text-center text-sm font-medium">{value}</span>
+        <span className="w-6 text-center text-base font-semibold tabular-nums">{value}</span>
         <Button
           variant="outline"
           size="icon"
@@ -360,117 +369,125 @@ function MalaysianSwitch({
   );
 }
 
+function FareState({
+  icon,
+  route,
+  title,
+  detail,
+  tone = "neutral",
+  action,
+}: {
+  icon: typeof Train01Icon;
+  route: string;
+  title: string;
+  detail: string;
+  tone?: "neutral" | "error";
+  action?: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="type-eyebrow">Starting fare · Economy Transit</CardDescription>
+        <CardTitle aria-label="No fare to show">
+          <span className="type-fare-hero text-muted-foreground/30">RM —</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-base font-medium">{route}</p>
+          <p
+            role={tone === "error" ? "alert" : "status"}
+            className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground"
+          >
+            <HugeiconsIcon
+              icon={icon}
+              strokeWidth={2}
+              className={cn("mt-0.5 size-4 shrink-0", tone === "error" && "text-destructive")}
+            />
+            <span>
+              <span className="font-medium text-foreground">{title}.</span> {detail}
+            </span>
+          </p>
+        </div>
+        {action}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OutputCard({
   from,
   to,
   party,
   isMalaysian,
   phase,
+  onAddAdult,
 }: {
+  onAddAdult?: () => void;
   from: StationName | null;
   to: StationName | null;
   party: Party;
   isMalaysian: boolean;
   phase: PromoPhase | null;
 }) {
-  if (!from || !to) {
+  if (!from || !to)
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Fare</CardTitle>
-          <CardDescription>Your fare shows up here.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Empty className="border-0 px-2 py-8">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={Train01Icon} strokeWidth={2} />
-              </EmptyMedia>
-              <EmptyTitle>No fare yet</EmptyTitle>
-              <EmptyDescription>
-                Pick where you get on and where you get off to see the Economy Transit starting
-                fare.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </CardContent>
-      </Card>
+      <FareState
+        icon={Train01Icon}
+        route={from ? `${from} to …` : "Pick two stations"}
+        title="Where to?"
+        detail="Choose where you get on and where you get off. Your fare appears here."
+      />
     );
-  }
 
-  if (from === to) {
+  if (from === to)
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Fare</CardTitle>
-          <CardDescription>{from}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
-            <AlertTitle>Same station twice</AlertTitle>
-            <AlertDescription>
-              You picked {from} for both ends. Choose a different station to get off at.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <FareState
+        icon={Alert02Icon}
+        tone="error"
+        route={from}
+        title="Same station on both ends"
+        detail="Change one of them to see a fare."
+      />
     );
-  }
 
   const fare = getFare(from, to);
-  if (fare == null) {
+  if (fare == null)
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Fare</CardTitle>
-          <CardDescription>
-            {from} to {to}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
-            <AlertTitle>No fare listed</AlertTitle>
-            <AlertDescription>
-              The fare table doesn&apos;t list an Economy Transit starting fare for {from} to {to}.
-              Try another pair of stations.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <FareState
+        icon={AlertCircleIcon}
+        tone="error"
+        route={`${from} to ${to}`}
+        title="No fare listed for this trip"
+        detail="The fare table has no Economy Transit price for these two stations. Try another pair."
+      />
     );
-  }
 
   const people = party.adults + party.students + party.half;
-  if (people === 0) {
+  if (people === 0)
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Fare</CardTitle>
-          <CardDescription>
-            {from} to {to}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
-            <AlertTitle>No passengers</AlertTitle>
-            <AlertDescription>
-              Add at least one adult, student, or concession passenger. Each type has its own price,
-              and the total adds them up.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <FareState
+        icon={Alert02Icon}
+        tone="error"
+        route={`${from} to ${to}`}
+        title="Add a passenger"
+        detail="The fare is worked out per passenger, so add at least one."
+        action={
+          onAddAdult ? (
+            <Button variant="outline" className="h-11 w-full" onClick={onAddAdult}>
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} data-icon="inline-start" />
+              Add an adult
+            </Button>
+          ) : null
+        }
+      />
     );
-  }
 
   const published = publishedJourney(from, to);
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
   const direction = stationIndex(from) < stationIndex(to) ? "Eastbound" : "Westbound";
-  const promoActive = phase === "active";
+  const promoActive = phase === "before" || phase === "active";
   const lines = partyRates
     .map((rate) => {
       const count = party[rate.key];
@@ -493,15 +510,15 @@ function OutputCard({
     return sum + (hop ?? 0);
   }, 0);
 
-  const renderCard = (className?: string) => (
+  const renderCard = (className?: string, withCopy = false) => (
     <Card className={className}>
       <CardHeader>
-        <CardDescription>Starting fare · Economy Transit</CardDescription>
-        <div className="flex flex-col items-start gap-2">
-          <CardTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-heading text-4xl font-semibold tracking-tight">
-            {formatRm(total)}
+        <CardDescription className="type-eyebrow">Starting fare · Economy Transit</CardDescription>
+        <div className="flex flex-col items-start gap-3">
+          <CardTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <FarePrice amount={total} className="type-fare-hero" />
             {discounted ? (
-              <span className="text-lg font-normal tracking-normal text-muted-foreground line-through">
+              <span className="text-xl font-normal tracking-normal text-muted-foreground tabular-nums line-through">
                 {formatRm(baseTotal)}
               </span>
             ) : null}
@@ -515,36 +532,38 @@ function OutputCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
         <div className="flex flex-col gap-2 md:gap-3">
-          <p className="text-sm leading-relaxed max-md:text-xs/relaxed max-md:font-medium">
+          <p className="text-base leading-relaxed font-medium">
             {from} to {to}
           </p>
-          <p className="text-sm text-muted-foreground max-md:text-xs/relaxed">
+          <p className="text-sm text-muted-foreground">
             {direction}
             {between === 0 ? " · next stop" : ` · ${between} ${between === 1 ? "stop" : "stops"}`}
             {published ? ` · ${published.km} km` : null}
           </p>
           {lines.length > 1 || people > 1 || (lines[0]?.off > 0 && !lines[0]?.launchRate) ? (
-            <ul className="flex flex-col gap-1 text-sm text-muted-foreground max-md:text-xs/relaxed">
+            <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
               {lines.map((line) => (
                 <li key={line.key} className="flex items-baseline justify-between gap-3">
                   <span>
                     {line.label} × {line.count}
                     {line.off > 0 ? ` · ${Math.round(line.off * 100)}% off` : ""}
                   </span>
-                  <span className="shrink-0">{formatRm(line.amount)}</span>
+                  <span className="shrink-0 font-medium text-foreground tabular-nums">
+                    {formatRm(line.amount)}
+                  </span>
                 </li>
               ))}
             </ul>
           ) : null}
           {published ? (
-            <p className="text-sm text-muted-foreground max-md:text-xs/relaxed">
+            <p className="text-sm text-muted-foreground">
               {`Transit ${published.transitTime} · Express ${formatRm(published.expressFare)}, ${published.expressTime}`}
             </p>
           ) : null}
         </div>
         <div className="flex flex-col gap-5">
           <LineDots from={from} to={to} />
-          <ol className="flex flex-col">
+          <ol className="flex flex-col lg:scroll-fade lg:max-h-[min(24rem,45dvh)] lg:overflow-y-auto lg:pr-3 lg:pl-1 lg:[scrollbar-width:thin]">
             {path.map((stop, i) => {
               const previous = path[i - 1];
               const hop = previous ? getFare(previous.name, stop.name) : null;
@@ -561,7 +580,7 @@ function OutputCard({
                         {code(stop.index)} · {stop.state}
                       </p>
                     </div>
-                    <p className="shrink-0 text-sm text-muted-foreground">
+                    <p className="shrink-0 text-sm text-muted-foreground tabular-nums">
                       {hop == null ? "Board" : formatRm(hop)}
                     </p>
                   </div>
@@ -576,13 +595,18 @@ function OutputCard({
             </p>
           ) : null}
         </div>
+        {withCopy ? (
+          <div className="max-md:hidden">
+            <CopyLinkButton />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
 
   return (
     <>
-      {renderCard("max-md:hidden")}
+      {renderCard("max-md:hidden", true)}
       <Drawer>
         <DrawerTrigger
           className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
@@ -600,11 +624,11 @@ function OutputCard({
           </span>
           <span className="shrink-0 text-right">
             {discounted ? (
-              <span className="block text-xs text-muted-foreground line-through">
+              <span className="block text-sm text-muted-foreground tabular-nums line-through">
                 {formatRm(baseTotal)}
               </span>
             ) : null}
-            <span className="text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
+            <FarePrice amount={total} className="text-4xl leading-none font-semibold tracking-tighter" />
           </span>
         </DrawerTrigger>
         <DrawerContent>
@@ -722,10 +746,8 @@ export function FareApp() {
     <div className="flex min-h-screen flex-col bg-background">
       <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 px-4 pt-6 pb-6 md:px-6 md:pb-10">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            ECRL Fare Calculator
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <h1 className="type-page-title">ECRL Fare Calculator</h1>
+          <p className="type-lead max-w-2xl">
             Check the Economy Transit starting fare between any two stations, Gombak to Kota Bharu.
             It costs the same in both directions.
           </p>
@@ -745,12 +767,12 @@ export function FareApp() {
               By Station
             </TabsTrigger>
             <TabsTrigger value="matrix" className="px-3">
-              Fare table
+              Fare Table
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="quote" className="pt-4">
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start">
               <Card>
                 <CardHeader>
                   <CardTitle>Where are you going?</CardTitle>
@@ -779,13 +801,13 @@ export function FareApp() {
                     <StationSelect id="to" label="To" value={to} onChange={setTo} />
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
                     {partyRates.map((rate) => (
                       <PartyCount
                         key={rate.key}
                         label={rate.label}
                         hint={
-                          rate.key === "adults" && phase === "active" && isMalaysian
+                          rate.key === "adults" && (phase === "before" || phase === "active") && isMalaysian
                             ? "Malaysian launch rate · 30% off"
                             : rate.hint
                         }
@@ -810,13 +832,16 @@ export function FareApp() {
                 </CardContent>
               </Card>
 
-              <OutputCard
-                from={from}
-                to={to}
-                party={party}
-                isMalaysian={isMalaysian}
-                phase={phase}
-              />
+              <div className="lg:sticky lg:top-6">
+                <OutputCard
+                  from={from}
+                  to={to}
+                  party={party}
+                  isMalaysian={isMalaysian}
+                  phase={phase}
+                  onAddAdult={() => setParty((c) => ({ ...c, adults: 1 }))}
+                />
+              </div>
             </div>
           </TabsContent>
 
@@ -867,7 +892,7 @@ export function FareApp() {
                                 {station.state} · {hops} {hops === 1 ? "stop" : "stops"} away
                               </span>
                             </span>
-                            <span className="shrink-0 text-xl font-medium">
+                            <span className="shrink-0 type-fare">
                               {fare == null ? "—" : formatRm(fare)}
                             </span>
                           </Button>
@@ -890,7 +915,7 @@ export function FareApp() {
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <PromoBanner phase={phase} />
-                <Table className="w-full min-w-[44rem] text-sm lg:min-w-full lg:table-fixed">
+                <Table className="w-full min-w-[44rem] text-xs tabular-nums lg:min-w-full lg:table-fixed lg:text-sm">
                   <caption className="sr-only">
                     Economy Transit starting fares. Rows are where you get on and columns are where
                     you get off, 01 Gombak to 16 Kota Bharu.
