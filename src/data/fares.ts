@@ -9,7 +9,8 @@ export const fareMeta = {
     "Kadar yang sama terpakai bagi perjalanan ulang alik. (Same fare applies for return journeys.)",
     "Kadar tambang ditetapkan melalui mekanisme tambang dinamik. (Fares set via dynamic pricing mechanism.)",
     "These are starting/base rates announced; actual fares may vary by demand, time, and availability.",
-    "Data extracted from official fare table image for web app use."
+    "Data extracted from official fare table image for web app use.",
+    "Malaysian citizens get 30% off the starting fare from 12 Dec 2026 through 11 Jan 2027. The discount does not stack with student or concession rates."
   ],
   "stations_count": 16,
   "source": "ECRL Kadar Tambang table (Economy Transit)"
@@ -428,4 +429,48 @@ export function publishedJourney(from: StationName, to: StationName) {
 
 export function formatRm(amount: number): string {
   return Number.isInteger(amount) ? `RM${amount}` : `RM${amount.toFixed(2)}`;
+}
+
+export function formatAmount(amount: number): string {
+  return Number.isInteger(amount) ? `${amount}` : amount.toFixed(2);
+}
+
+/** First-month launch rate for Malaysian citizens. Dates are inclusive, Malaysia time. */
+export const launchPromo = {
+  off: 0.3,
+  start: "2026-12-12",
+  end: "2027-01-11",
+  startLabel: "12 Dec 2026",
+  endLabel: "11 Jan 2027",
+  audience: "Malaysian citizens",
+} as const;
+
+export type PromoPhase = "before" | "active" | "after";
+
+const MYT_OFFSET_MS = 8 * 60 * 60 * 1000;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function malaysiaDateString(date: Date): string {
+  return new Date(date.getTime() + MYT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+export function promoDateFrom(now: Date, override?: string | null): string {
+  if (override && ISO_DATE.test(override)) return override;
+  return malaysiaDateString(now);
+}
+
+export function promoPhase(date: string): PromoPhase {
+  if (date < launchPromo.start) return "before";
+  if (date > launchPromo.end) return "after";
+  return "active";
+}
+
+export function isPromoActive(date: string): boolean {
+  return promoPhase(date) === "active";
+}
+
+/** Largest single discount. The launch rate does not stack on top of a concession. */
+export function effectiveOff(baseOff: number, isMalaysian: boolean, promoActive: boolean): number {
+  if (!isMalaysian || !promoActive) return baseOff;
+  return Math.max(baseOff, launchPromo.off);
 }

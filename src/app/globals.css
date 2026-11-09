@@ -117,6 +117,57 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+@utility type-fare-hero {
+  @apply font-heading text-5xl leading-none font-semibold tracking-tighter tabular-nums sm:text-6xl lg:text-7xl;
+}
+@utility type-fare {
+  @apply text-lg font-semibold tracking-tight tabular-nums;
+}
+@utility type-page-title {
+  @apply text-xl font-semibold tracking-tight text-balance sm:text-2xl;
+}
+@utility type-lead {
+  @apply text-sm leading-relaxed text-muted-foreground sm:text-base;
+}
+@utility type-eyebrow {
+  @apply text-xs font-medium tracking-wide text-muted-foreground uppercase;
+}
+
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 2rem;
+}
+@keyframes scroll-fade-top {
+  0% { --fade-top: 0px; }
+  10%, 100% { --fade-top: 2rem; }
+}
+@keyframes scroll-fade-bottom {
+  0%, 90% { --fade-bottom: 2rem; }
+  100% { --fade-bottom: 0px; }
+}
+@utility scroll-fade {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+  @supports (animation-timeline: scroll()) {
+    animation-name: scroll-fade-top, scroll-fade-bottom;
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(self);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

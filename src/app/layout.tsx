@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteUrl } from "@/lib/site-url";
+import cover from "./ecrl-cover.png";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,7 +13,7 @@ const inter = Inter({
 
 const title = "ECRL Fare Calculator: Gombak to Kota Bharu";
 const description =
-  "Check the Economy Transit starting fare between any two of the 16 stations, from Gombak to Kota Bharu. It costs the same in both directions.";
+  "Check the Economy Transit starting fare between any two of the 16 stations, from Gombak to Kota Bharu. It costs the same in both directions. Malaysian citizens get 30% off from 12 Dec 2026 to 11 Jan 2027.";
 
 const url = siteUrl();
 
@@ -62,11 +63,20 @@ export const metadata: Metadata = {
     locale: "en_MY",
     siteName: "ECRL Fare Calculator",
     url: "/",
+    images: [
+      {
+        url: cover.src,
+        width: cover.width,
+        height: cover.height,
+        alt: "Forested ridges along the East Coast Rail Link, from Gombak to Kota Bharu.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: [cover.src],
   },
 };
 
