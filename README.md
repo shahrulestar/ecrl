@@ -6,6 +6,8 @@ The figures come from the published Economy Transit fare table. ECRL runs **dyna
 
 You can mix adults, students, and concession passengers. Student and concession amounts use the announced starting fare with the stated 40% or 50% taken off, still as **starting** rates, not guaranteed checkout prices.
 
+From 12 Dec 2026 through 11 Jan 2027, Malaysian citizens get 30% off the starting fare. It does not stack with the student or concession rate: each passenger gets the larger discount. After 11 Jan 2027 the calculator shows the normal starting fares again. Turn the Malaysian citizen switch off to see the price without that offer.
+
 Change the stations or party size and the link in your browser updates. Share that URL to open the same trip again.
 
 ## Hosting

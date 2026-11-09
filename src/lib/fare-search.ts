@@ -1,4 +1,4 @@
-import { createParser, parseAsStringLiteral } from "nuqs/server";
+import { createParser, parseAsBoolean, parseAsStringLiteral } from "nuqs/server";
 import { stations, type StationName } from "@/data/fares";
 
 export const PARTY_MAX = 9;
@@ -16,6 +16,7 @@ export const fareSearchParsers = {
   adults: parseAsPartyCount,
   students: parseAsPartyCount,
   half: parseAsPartyCount,
+  my: parseAsBoolean.withDefault(true),
 };
 
 export type Party = {
@@ -30,6 +31,8 @@ export type FareSearch = {
   adults?: number;
   students?: number;
   half?: number;
+  /** False when the party is not Malaysian. Omitted when the default (Malaysian) applies. */
+  my?: boolean;
 };
 
 export function isStationName(value: unknown): value is StationName {
@@ -79,15 +82,18 @@ export function fareSearchParams(input: {
   from: StationName | null;
   to: StationName | null;
   party: Party;
+  my?: boolean;
 }): FareSearch {
   const from = input.from ?? undefined;
   const to = input.to ?? undefined;
+  const my = input.my === false ? false : undefined;
   const { adults, students, half } = input.party;
-  if (adults + students + half === 0) return { from, to, adults: 0, students: 0, half: 0 };
-  if (adults === 1 && students === 0 && half === 0) return { from, to };
+  if (adults + students + half === 0) return { from, to, my, adults: 0, students: 0, half: 0 };
+  if (adults === 1 && students === 0 && half === 0) return { from, to, my };
   return {
     from,
     to,
+    my,
     adults,
     students: students === 0 ? undefined : students,
     half: half === 0 ? undefined : half,
@@ -100,5 +106,6 @@ export function fareQueryString(search: FareSearch): string {
     const value = search[key];
     if (value !== undefined) qs.set(key, String(value));
   }
+  if (search.my === false) qs.set("my", "false");
   return qs.toString();
 }

@@ -19,6 +19,7 @@ import {
   Train01Icon,
 } from "@hugeicons/core-free-icons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -62,12 +63,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
+  effectiveOff,
   formatRm,
   getFare,
+  launchPromo,
   pathBetween,
+  promoDateFrom,
+  promoPhase,
   publishedJourney,
   stationIndex,
   stations,
+  type PromoPhase,
   type StationName,
 } from "@/data/fares";
 import {
@@ -93,6 +99,13 @@ const footnotes = [
   "ECRL uses dynamic pricing. These are the announced starting prices, and the real price can change with demand, time, and how many seats are left.",
   "Student and concession prices are the starting fare with the announced 40% or 50% taken off. They aren't live ticket prices.",
 ];
+
+const launchFootnote = `Launch offer for Malaysian citizens, ${launchPromo.startLabel} to ${launchPromo.endLabel}. Fares return to normal after. The 30% does not stack with the student or concession rate; each passenger gets the larger one.`;
+
+function footnotesFor(phase: PromoPhase | null) {
+  if (phase !== "before" && phase !== "active") return footnotes;
+  return [...footnotes, launchFootnote];
+}
 
 type TabId = "quote" | "line" | "matrix";
 
@@ -276,14 +289,66 @@ function PartyCount({
   );
 }
 
+function PromoBanner({ phase }: { phase: PromoPhase | null }) {
+  if (phase !== "active") return null;
+  return (
+    <p className="text-sm leading-relaxed text-muted-foreground">
+      Malaysians get 30% off from {launchPromo.startLabel} to {launchPromo.endLabel}. Prices below
+      are before discount.
+    </p>
+  );
+}
+
+function MalaysianSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">Malaysian citizen</span>
+        <span className="block text-xs text-muted-foreground">
+          Launch discount applies to Malaysians only
+        </span>
+      </span>
+      <span
+        className={cn(
+          "inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors",
+          checked ? "bg-primary" : "bg-input",
+        )}
+      >
+        <span
+          className={cn(
+            "size-5 rounded-full bg-background shadow-sm transition-transform",
+            checked && "translate-x-5",
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 function OutputCard({
   from,
   to,
   party,
+  isMalaysian,
+  phase,
 }: {
   from: StationName | null;
   to: StationName | null;
   party: Party;
+  isMalaysian: boolean;
+  phase: PromoPhase | null;
 }) {
   if (!from || !to) {
     return (
@@ -382,14 +447,24 @@ function OutputCard({
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
   const direction = stationIndex(from) < stationIndex(to) ? "Eastbound" : "Westbound";
+  const promoActive = phase === "active";
   const lines = partyRates
     .map((rate) => {
       const count = party[rate.key];
-      const each = sen(fare * (1 - rate.off));
-      return { ...rate, count, each, amount: sen(each * count) };
+      const off = effectiveOff(rate.off, isMalaysian, promoActive);
+      const each = sen(fare * (1 - off));
+      const launchRate = promoActive && isMalaysian && off > rate.off;
+      return { ...rate, count, each, amount: sen(each * count), off, launchRate };
     })
     .filter((line) => line.count > 0);
   const total = sen(lines.reduce((sum, line) => sum + line.amount, 0));
+  const baseTotal = sen(
+    partyRates.reduce((sum, rate) => {
+      const each = sen(fare * (1 - rate.off));
+      return sum + sen(each * party[rate.key]);
+    }, 0),
+  );
+  const discounted = total < baseTotal;
   const hopSum = path.slice(1).reduce((sum, stop, i) => {
     const hop = getFare(path[i].name, stop.name);
     return sum + (hop ?? 0);
@@ -399,7 +474,21 @@ function OutputCard({
     <Card className={className}>
       <CardHeader>
         <CardDescription>Starting fare · Economy Transit</CardDescription>
-        <CardTitle className="font-heading text-4xl font-semibold tracking-tight">{formatRm(total)}</CardTitle>
+        <div className="flex flex-col items-start gap-2">
+          <CardTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-heading text-4xl font-semibold tracking-tight">
+            {formatRm(total)}
+            {discounted ? (
+              <span className="text-lg font-normal tracking-normal text-muted-foreground line-through">
+                {formatRm(baseTotal)}
+              </span>
+            ) : null}
+          </CardTitle>
+          {discounted ? (
+            <Badge variant="secondary" className="h-auto px-2.5 py-1 text-xs font-medium">
+              30% off · Malaysians · until {launchPromo.endLabel}
+            </Badge>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
         <div className="flex flex-col gap-2 md:gap-3">
@@ -419,7 +508,11 @@ function OutputCard({
                 <li key={line.key} className="flex items-baseline justify-between gap-3">
                   <span>
                     {line.label} × {line.count}
-                    {line.off > 0 ? ` · ${line.hint}` : ""}
+                    {line.launchRate
+                      ? " · Malaysian launch rate · 30% off"
+                      : line.off > 0
+                        ? ` · ${line.hint}`
+                        : ""}
                   </span>
                   <span className="shrink-0">{formatRm(line.amount)}</span>
                 </li>
@@ -442,6 +535,11 @@ function OutputCard({
             This is the published starting price. The real price can change with the time, demand,
             and seats left. The return trip costs the same.
           </p>
+          {promoActive && isMalaysian ? (
+            <p className="text-xs leading-relaxed text-muted-foreground max-md:text-[11px] max-md:leading-snug">
+              {launchFootnote}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-5">
           <LineDots from={from} to={to} />
@@ -487,7 +585,7 @@ function OutputCard({
       <Drawer>
         <DrawerTrigger
           className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
-          aria-label={`Fare ${formatRm(total)}, ${from} to ${to}. Open full breakdown`}
+          aria-label={`Fare ${formatRm(total)}${discounted ? `, was ${formatRm(baseTotal)}` : ""}, ${from} to ${to}. Open full breakdown`}
         >
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Starting fare</span>
@@ -499,7 +597,14 @@ function OutputCard({
               <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5" />
             </span>
           </span>
-          <span className="shrink-0 text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
+          <span className="shrink-0 text-right">
+            {discounted ? (
+              <span className="block text-xs text-muted-foreground line-through">
+                {formatRm(baseTotal)}
+              </span>
+            ) : null}
+            <span className="text-2xl font-semibold tracking-tight">{formatRm(total)}</span>
+          </span>
         </DrawerTrigger>
         <DrawerContent>
           <DrawerHeader>
@@ -541,6 +646,15 @@ function CopyLinkButton() {
 export function FareApp() {
   const [query, setQuery] = useQueryStates(fareSearchParsers);
   const [tab, setTab] = useState<TabId>("quote");
+  const [promoDate, setPromoDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const override =
+      process.env.NODE_ENV !== "production"
+        ? new URLSearchParams(window.location.search).get("today")
+        : null;
+    setPromoDate(promoDateFrom(new Date(), override));
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -551,6 +665,7 @@ export function FareApp() {
       from: search.from ?? null,
       to: search.to ?? null,
       party: partyFromSearch(search),
+      my: params.get("my") !== "false",
     });
     const qs = fareQueryString(normalized);
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
@@ -560,9 +675,12 @@ export function FareApp() {
       adults: normalized.adults ?? null,
       students: normalized.students ?? null,
       half: normalized.half ?? null,
+      my: normalized.my === false ? false : null,
     });
   }, [setQuery]);
   const { from, to } = query;
+  const isMalaysian = query.my;
+  const phase = promoDate ? promoPhase(promoDate) : null;
   const party = partyFromSearch({
     adults: query.adults ?? undefined,
     students: query.students ?? undefined,
@@ -600,6 +718,11 @@ export function FareApp() {
             Check the Economy Transit starting fare between any two stations, Gombak to Kota
             Bharu. It costs the same in both directions.
           </p>
+          {phase === "before" ? (
+            <p className="text-xs text-muted-foreground">
+              Launch offer starts {launchPromo.startLabel}.
+            </p>
+          ) : null}
         </div>
 
         <Tabs
@@ -655,7 +778,11 @@ export function FareApp() {
                       <PartyCount
                         key={rate.key}
                         label={rate.label}
-                        hint={rate.hint}
+                        hint={
+                          rate.key === "adults" && phase === "active" && isMalaysian
+                            ? "Malaysian launch rate · 30% off"
+                            : rate.hint
+                        }
                         value={party[rate.key]}
                         onChange={(next) =>
                           setParty((current) => ({ ...current, [rate.key]: next }))
@@ -663,10 +790,22 @@ export function FareApp() {
                       />
                     ))}
                   </div>
+                  {phase === "active" ? (
+                    <MalaysianSwitch
+                      checked={isMalaysian}
+                      onChange={(next) => setQuery({ my: next })}
+                    />
+                  ) : null}
                 </CardContent>
               </Card>
 
-              <OutputCard from={from} to={to} party={party} />
+              <OutputCard
+                from={from}
+                to={to}
+                party={party}
+                isMalaysian={isMalaysian}
+                phase={phase}
+              />
             </div>
           </TabsContent>
 
@@ -681,6 +820,7 @@ export function FareApp() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
+                <PromoBanner phase={phase} />
                 <StationSelect id="line-from" label="From" value={from} onChange={setFrom} fit />
                 {from == null ? (
                   <Empty className="border-0 px-2 py-8">
@@ -737,7 +877,8 @@ export function FareApp() {
                   for the full fare.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-3">
+                <PromoBanner phase={phase} />
                 <Table className="w-full min-w-[44rem] text-sm lg:min-w-full lg:table-fixed">
                   <caption className="sr-only">
                     Economy Transit starting fares. Rows are where you get on and columns are where
@@ -795,20 +936,33 @@ export function FareApp() {
       <footer className="mt-auto border-t max-md:pb-32">
         <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 py-6 md:px-6">
           <ul className="flex max-w-2xl flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
-            {footnotes.map((note) => (
+            {footnotesFor(phase).map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
           <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              Built by{" "}
-              <a
-                href="https://shahrulestar.com"
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                shahrulestar.com
-              </a>
-            </p>
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-xs text-muted-foreground">
+                <a
+                  href="https://ecrl.com.my/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  Learn more
+                </a>{" "}
+                on the official ECRL website.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Built by{" "}
+                <a
+                  href="https://shahrulestar.com"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  shahrulestar.com
+                </a>
+              </p>
+            </div>
             <ThemeToggle />
           </div>
         </div>
