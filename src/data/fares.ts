@@ -474,3 +474,36 @@ export function effectiveOff(baseOff: number, isMalaysian: boolean, promoActive:
   if (!isMalaysian || !promoActive) return baseOff;
   return Math.max(baseOff, launchPromo.off);
 }
+
+/** Short URL slugs, one per station. Keep in sync with `stations`. */
+export const stationSlugByName = {
+  Gombak: "gombak",
+  Bentong: "bentong",
+  Temerloh: "temerloh",
+  Maran: "maran",
+  "Paya Besar": "payabesar",
+  KotaSAS: "kotasas",
+  "Kuantan Port City": "kpc",
+  Cherating: "cherating",
+  Chukai: "chukai",
+  Kemasik: "kemasik",
+  Dungun: "dungun",
+  "Kuala Terengganu": "kt",
+  "Bandar Permaisuri": "bp",
+  Jerteh: "jerteh",
+  "Pasir Puteh": "pp",
+  "Kota Bharu": "kb",
+} as const satisfies Record<StationName, string>;
+
+export type StationSlug = (typeof stationSlugByName)[StationName];
+
+export const stationSlugs = Object.values(stationSlugByName) as StationSlug[];
+
+export function stationToSlug(name: StationName): StationSlug {
+  return stationSlugByName[name];
+}
+
+export function slugToStation(slug: string): StationName | null {
+  const hit = stations.find((s) => stationSlugByName[s.name] === slug);
+  return hit ? hit.name : null;
+}

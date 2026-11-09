@@ -55,14 +55,14 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/trip" },
   openGraph: {
     title,
     description,
     type: "website",
     locale: "en_MY",
     siteName: "ECRL Fare Calculator",
-    url: "/",
+    url: "/trip",
     images: [
       {
         url: cover.src,
