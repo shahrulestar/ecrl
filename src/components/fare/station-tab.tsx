@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useQueryStates } from "nuqs";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Train01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,16 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { formatRm, getFare, stationIndex, stations, type StationName } from "@/data/fares";
-import { stationSearchParsers, stationUrlKeys, tripHref } from "@/lib/fare-search";
+import { fill } from "@/i18n/fill";
+import { useI18n } from "@/i18n/provider";
+import { tripHref } from "@/lib/fare-search";
+import { useFareState } from "@/lib/use-fare-state";
 import { code, PromoBanner, StationSelect, usePromoPhase } from "@/components/fare/shared";
 
 export function StationTab() {
+  const { m } = useI18n();
   const router = useRouter();
-  const [{ from }, setQuery] = useQueryStates(stationSearchParsers, {
-    urlKeys: stationUrlKeys,
-    clearOnDefault: true,
-  });
+  const [{ from }, setQuery] = useFareState();
   const phase = usePromoPhase();
 
   function setFrom(value: StationName | null) {
@@ -36,26 +36,22 @@ export function StationTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Fares from one station</CardTitle>
+        <CardTitle>{m.station.title}</CardTitle>
         <CardDescription>
-          {from
-            ? `Every stop from ${from}, in line order. Tap one to see the full fare.`
-            : "Pick a station, then tap where you're going to see the full fare."}
+          {from ? fill(m.station.picked, { from }) : m.station.emptyLead}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <PromoBanner phase={phase} />
-        <StationSelect id="line-from" label="From" value={from} onChange={setFrom} fit />
+        <StationSelect id="line-from" label={m.station.from} value={from} onChange={setFrom} />
         {from == null ? (
           <Empty className="border-0 px-2 py-8">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <HugeiconsIcon icon={Train01Icon} strokeWidth={2} />
               </EmptyMedia>
-              <EmptyTitle>No station picked yet</EmptyTitle>
-              <EmptyDescription>
-                Choose where you&apos;re starting to see the fare to every other stop.
-              </EmptyDescription>
+              <EmptyTitle>{m.station.emptyTitle}</EmptyTitle>
+              <EmptyDescription>{m.station.emptyBody}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -77,7 +73,11 @@ export function StationTab() {
                         {code(station.index)} {station.name}
                       </span>
                       <span className="block text-xs font-normal text-muted-foreground">
-                        {station.state} · {hops} {hops === 1 ? "stop" : "stops"} away
+                        {station.state} ·{" "}
+                        {fill(m.station.away, {
+                          count: hops,
+                          unit: hops === 1 ? m.station.stopOne : m.station.stopMany,
+                        })}
                       </span>
                     </span>
                     <span className="shrink-0 type-fare">

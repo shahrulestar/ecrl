@@ -12,7 +12,9 @@ Change the stations or party size and the link in your browser updates. Share th
 
 ## Hosting
 
-The live site is built as a static Next.js app and served on **Cloudflare Pages** from this repository.
+The live site is at **[ecrl.shahrulestar.com](https://ecrl.shahrulestar.com/trip)**. English is the default. Pages are `/trip`, `/station` and `/table`. The language choice is saved in a cookie on the device, and `functions/_middleware.ts` serves the prebuilt Malay HTML (`/ms/...`) at the same URL, so there is no flash. `/ms/...` also works directly and carries `hreflang` links. It is built as a static Next.js app and served on **Cloudflare Pages** from this repository.
+
+Set `NEXT_PUBLIC_SITE_URL=https://ecrl.shahrulestar.com` in the Pages environment if you need to override the built-in default.
 
 ## Disclaimer
 

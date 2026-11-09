@@ -1,8 +1,12 @@
+/** Canonical production host; override with NEXT_PUBLIC_SITE_URL when needed. */
+export const DEFAULT_SITE_URL = "https://ecrl.shahrulestar.com";
+
 export function siteUrl(): URL | null {
   const raw =
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.CF_PAGES_URL ??
-    process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    DEFAULT_SITE_URL;
   if (!raw) return null;
 
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;

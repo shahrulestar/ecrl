@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { StationTab } from "@/components/fare/station-tab";
+import { pageMetadata } from "@/i18n/seo";
 
-export const metadata: Metadata = {
-  title: { absolute: "ECRL Fares by Station: every stop from one station" },
-  description:
-    "Pick an ECRL station and see the Economy Transit starting fare to every other stop, in line order.",
-  alternates: { canonical: "/station" },
-};
+export const metadata: Metadata = pageMetadata("station");
 
 export default function StationPage() {
   return (

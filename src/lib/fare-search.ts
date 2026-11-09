@@ -1,5 +1,6 @@
-import { createParser, parseAsBoolean } from "nuqs/server";
-import { slugToStation, stations, stationToSlug, type StationName } from "@/data/fares";
+import { createParser } from "nuqs/server";
+import { slugToStation, stations, type StationName } from "@/data/fares";
+import { decodeFareCode, encodeFareCode, type FareState } from "@/lib/fare-code";
 
 export const PARTY_MAX = 9;
 
@@ -26,37 +27,53 @@ export function decodePartyParam(value: string): Party | null {
   return { adults, students, half };
 }
 
-const parseAsStationSlug = createParser<StationName>({
-  parse: slugToStation,
-  serialize: stationToSlug,
-});
-
-const parseAsParty = createParser<Party>({
-  parse: decodePartyParam,
-  serialize: encodePartyParam,
-  eq: (a, b) => a.adults === b.adults && a.students === b.students && a.half === b.half,
-});
-
-export const fareSearchParsers = {
-  from: parseAsStationSlug,
-  to: parseAsStationSlug,
-  party: parseAsParty.withDefault(DEFAULT_PARTY),
-  my: parseAsBoolean.withDefault(true),
+export const DEFAULT_FARE_STATE: FareState = {
+  from: null,
+  to: null,
+  party: DEFAULT_PARTY,
+  my: true,
 };
 
-/** Short URL keys for the trip and table pages. */
-export const fareUrlKeys = { from: "f", to: "t", party: "p", my: "my" } as const;
+function isSameFareState(a: FareState, b: FareState): boolean {
+  return (
+    a.from === b.from &&
+    a.to === b.to &&
+    a.my === b.my &&
+    a.party.adults === b.party.adults &&
+    a.party.students === b.party.students &&
+    a.party.half === b.party.half
+  );
+}
 
-/** Station page: one station, shown as `?s=kb`. */
-export const stationSearchParsers = { from: fareSearchParsers.from };
-export const stationUrlKeys = { from: "s" } as const;
+/** One `q` param carries the whole selection, e.g. `?q=kx7m3d9`. */
+export const parseAsFareCode = createParser<FareState>({
+  parse: decodeFareCode,
+  serialize: encodeFareCode,
+  eq: isSameFareState,
+});
 
-/** Table page: only reads the current pair to highlight it. */
-export const tableSearchParsers = {
-  from: fareSearchParsers.from,
-  to: fareSearchParsers.to,
-};
-export const tableUrlKeys = { from: "f", to: "t" } as const;
+export const FARE_QUERY_KEY = "q";
+
+/** Read old `f/t/p/s/my` and long `from/adults` params. Returns null when none are present. */
+export function legacyFareState(params: URLSearchParams): FareState | null {
+  if (params.has(FARE_QUERY_KEY)) return null;
+  const shortFrom = slugToStation(params.get("f") ?? params.get("s") ?? "");
+  const shortTo = slugToStation(params.get("t") ?? "");
+  const shortParty = params.has("p") ? decodePartyParam(params.get("p") ?? "") : DEFAULT_PARTY;
+  const isShort = ["f", "s", "t", "p"].some((key) => params.has(key));
+  const isLong = ["from", "to", "adults", "students", "half", "passengers", "concession"].some(
+    (key) => params.has(key),
+  );
+  if (!isShort && !isLong && !params.has("my")) return null;
+
+  const long = parseFareSearch(Object.fromEntries(params.entries()));
+  return {
+    from: isShort ? shortFrom : (long.from ?? null),
+    to: isShort ? shortTo : (long.to ?? null),
+    party: isShort ? (shortParty ?? DEFAULT_PARTY) : partyFromSearch(long),
+    my: params.get("my") !== "false",
+  };
+}
 
 export type FareSearch = {
   from?: StationName;
@@ -133,15 +150,18 @@ export function fareSearchParams(input: {
   };
 }
 
+export function fareStateQuery(state: FareState): string {
+  if (isSameFareState(state, DEFAULT_FARE_STATE)) return "";
+  return `${FARE_QUERY_KEY}=${encodeFareCode(state)}`;
+}
+
 export function fareQueryString(search: FareSearch): string {
-  const qs = new URLSearchParams();
-  if (search.from) qs.set(fareUrlKeys.from, stationToSlug(search.from));
-  if (search.to) qs.set(fareUrlKeys.to, stationToSlug(search.to));
-  const party = partyFromSearch(search);
-  if (encodePartyParam(party) !== encodePartyParam(DEFAULT_PARTY))
-    qs.set(fareUrlKeys.party, encodePartyParam(party));
-  if (search.my === false) qs.set(fareUrlKeys.my, "false");
-  return qs.toString();
+  return fareStateQuery({
+    from: search.from ?? null,
+    to: search.to ?? null,
+    party: partyFromSearch(search),
+    my: search.my !== false,
+  });
 }
 
 export function tripHref(from: StationName, to: StationName): string {

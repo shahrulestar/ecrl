@@ -11,10 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fill } from "@/i18n/fill";
+import { useI18n } from "@/i18n/provider";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { cn } from "@/lib/utils";
 import {
   formatAmount,
-  launchPromo,
   promoDateFrom,
   promoPhase,
   stations,
@@ -59,6 +61,8 @@ export function StationSelect({
   onChange: (value: StationName) => void;
   fit?: boolean;
 }) {
+  const { m } = useI18n();
+
   return (
     <div className={cn("flex flex-col gap-2", fit ? "w-fit max-w-full self-start" : "min-w-0")}>
       <Label htmlFor={id}>{label}</Label>
@@ -69,7 +73,7 @@ export function StationSelect({
         }}
       >
         <SelectTrigger id={id} className={cn("min-h-11", fit ? "w-fit" : "w-full")}>
-          <SelectValue placeholder="Pick a station" />
+          <SelectValue placeholder={m.shared.placeholder} />
         </SelectTrigger>
         <SelectContent
           side="bottom"
@@ -109,12 +113,17 @@ export function FarePrice({ amount, className }: { amount: number; className?: s
   );
 }
 
+export function AnimatedFarePrice({ amount, className }: { amount: number; className?: string }) {
+  const value = useAnimatedNumber(amount);
+  return <FarePrice amount={value} className={className} />;
+}
+
 export function PromoBanner({ phase }: { phase: PromoPhase | null }) {
+  const { m } = useI18n();
   if (phase !== "active") return null;
   return (
     <p className="text-sm leading-relaxed text-muted-foreground">
-      Malaysians get 30% off from {launchPromo.startLabel} to {launchPromo.endLabel}. Prices below
-      are before discount.
+      {fill(m.shared.promoBanner, { start: m.promo.start, end: m.promo.end })}
     </p>
   );
 }

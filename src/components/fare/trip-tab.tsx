@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryStates } from "nuqs";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
@@ -24,13 +23,15 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { fill } from "@/i18n/fill";
+import { useI18n } from "@/i18n/provider";
 import {
   effectiveOff,
   formatRm,
   getFare,
-  launchPromo,
   pathBetween,
   publishedJourney,
   stationIndex,
@@ -38,13 +39,14 @@ import {
   type PromoPhase,
   type StationName,
 } from "@/data/fares";
-import { fareSearchParsers, fareUrlKeys, PARTY_MAX, type Party } from "@/lib/fare-search";
-import { code, FarePrice, StationSelect, usePromoPhase } from "@/components/fare/shared";
+import { PARTY_MAX, type Party } from "@/lib/fare-search";
+import { useFareState } from "@/lib/use-fare-state";
+import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 
 const partyRates = [
-  { key: "adults", label: "Adult", hint: "Full fare", off: 0 },
-  { key: "students", label: "Student", hint: "Aged 13–24 · 40% off", off: 0.4 },
-  { key: "half", label: "Child, senior, OKU, pensioner", hint: "50% off", off: 0.5 },
+  { key: "adults", off: 0 },
+  { key: "students", off: 0.4 },
+  { key: "half", off: 0.5 },
 ] as const;
 
 function sen(amount: number) {
@@ -100,6 +102,8 @@ function PartyCount({
   value: number;
   onChange: (next: number) => void;
 }) {
+  const { m } = useI18n();
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3">
       <div className="min-w-0">
@@ -111,7 +115,7 @@ function PartyCount({
           variant="outline"
           size="icon"
           className="size-11"
-          aria-label={`One less: ${label}`}
+          aria-label={fill(m.trip.oneLess, { label })}
           disabled={value <= 0}
           onClick={() => onChange(value - 1)}
         >
@@ -122,7 +126,7 @@ function PartyCount({
           variant="outline"
           size="icon"
           className="size-11"
-          aria-label={`One more: ${label}`}
+          aria-label={fill(m.trip.oneMore, { label })}
           disabled={value >= PARTY_MAX}
           onClick={() => onChange(value + 1)}
         >
@@ -142,6 +146,8 @@ function MalaysianSwitch({
   detail: string;
   onChange: (next: boolean) => void;
 }) {
+  const { m } = useI18n();
+
   return (
     <button
       type="button"
@@ -151,7 +157,7 @@ function MalaysianSwitch({
       className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left"
     >
       <span className="min-w-0">
-        <span className="block text-sm font-medium">Launch Discount</span>
+        <span className="block text-sm font-medium">{m.trip.launchTitle}</span>
         <span className="block text-xs text-muted-foreground">{detail}</span>
       </span>
       <span
@@ -186,10 +192,12 @@ function FareState({
   tone?: "neutral" | "error";
   action?: React.ReactNode;
 }) {
+  const { m } = useI18n();
+
   return (
     <Card>
       <CardHeader>
-        <CardDescription className="type-eyebrow">Starting fare · Economy Transit</CardDescription>
+        <CardDescription className="type-eyebrow">{m.trip.eyebrow}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
@@ -229,14 +237,18 @@ function OutputCard({
   isMalaysian: boolean;
   phase: PromoPhase | null;
 }) {
+  const { locale, m } = useI18n();
+  const routeOf = (origin: string, destination: string) =>
+    fill(m.trip.route, { from: origin, to: destination });
+
   if (!from || !to)
     return (
-      <FareState
-        icon={Train01Icon}
-        route={from ? `${from} to …` : "Pick two stations"}
-        title="Where to?"
-        detail="Choose where you get on and where you get off. Your fare appears here."
-      />
+      <Empty className="min-h-40 p-4">
+        <EmptyHeader>
+          <EmptyTitle>{from ? fill(m.trip.whereRouteFrom, { from }) : m.trip.whereRoute}</EmptyTitle>
+          <EmptyDescription>{m.trip.whereDetail}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
 
   if (from === to)
@@ -245,8 +257,8 @@ function OutputCard({
         icon={Alert02Icon}
         tone="error"
         route={from}
-        title="Same station on both ends"
-        detail="Change one of them to see a fare."
+        title={m.trip.sameTitle}
+        detail={m.trip.sameDetail}
       />
     );
 
@@ -256,9 +268,9 @@ function OutputCard({
       <FareState
         icon={AlertCircleIcon}
         tone="error"
-        route={`${from} to ${to}`}
-        title="No fare listed for this trip"
-        detail="The fare table has no Economy Transit price for these two stations. Try another pair."
+        route={routeOf(from, to)}
+        title={m.trip.missingTitle}
+        detail={m.trip.missingDetail}
       />
     );
 
@@ -268,14 +280,14 @@ function OutputCard({
       <FareState
         icon={Alert02Icon}
         tone="error"
-        route={`${from} to ${to}`}
-        title="Add a passenger"
-        detail="The fare is worked out per passenger, so add at least one."
+        route={routeOf(from, to)}
+        title={m.trip.passengersTitle}
+        detail={m.trip.passengersDetail}
         action={
           onAddAdult ? (
             <Button variant="outline" className="h-11 w-full" onClick={onAddAdult}>
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} data-icon="inline-start" />
-              Add an adult
+              {m.trip.addAdult}
             </Button>
           ) : null
         }
@@ -285,7 +297,7 @@ function OutputCard({
   const published = publishedJourney(from, to);
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
-  const direction = stationIndex(from) < stationIndex(to) ? "Eastbound" : "Westbound";
+  const direction = stationIndex(from) < stationIndex(to) ? m.trip.east : m.trip.west;
   const promoActive = phase === "before" || phase === "active";
   const lines = partyRates
     .map((rate) => {
@@ -293,7 +305,15 @@ function OutputCard({
       const off = effectiveOff(rate.off, isMalaysian, promoActive);
       const each = sen(fare * (1 - off));
       const launchRate = promoActive && isMalaysian && off > rate.off;
-      return { ...rate, count, each, amount: sen(each * count), off, launchRate };
+      return {
+        ...rate,
+        label: m.party[rate.key].label,
+        count,
+        each,
+        amount: sen(each * count),
+        off,
+        launchRate,
+      };
     })
     .filter((line) => line.count > 0);
   const total = sen(lines.reduce((sum, line) => sum + line.amount, 0));
@@ -312,10 +332,10 @@ function OutputCard({
   const renderCard = (className?: string, withCopy = false) => (
     <Card className={className}>
       <CardHeader>
-        <CardDescription className="type-eyebrow">Starting fare · Economy Transit</CardDescription>
+        <CardDescription className="type-eyebrow">{m.trip.eyebrow}</CardDescription>
         <div className="flex flex-col items-start gap-3">
           <CardTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <FarePrice amount={total} className="type-fare-hero" />
+            <AnimatedFarePrice amount={total} className="type-fare-hero" />
             {discounted ? (
               <span className="text-xl font-normal tracking-normal text-muted-foreground tabular-nums line-through">
                 {formatRm(baseTotal)}
@@ -324,19 +344,22 @@ function OutputCard({
           </CardTitle>
           {discounted ? (
             <Badge variant="secondary" className="h-auto px-2.5 py-1 text-xs font-medium">
-              30% off · Malaysians · until {launchPromo.endLabel}
+              {fill(m.trip.badge, { end: m.promo.end })}
             </Badge>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
         <div className="flex flex-col gap-2 md:gap-3">
-          <p className="text-base leading-relaxed font-medium">
-            {from} to {to}
-          </p>
+          <p className="text-base leading-relaxed font-medium">{routeOf(from, to)}</p>
           <p className="text-sm text-muted-foreground">
             {direction}
-            {between === 0 ? " · next stop" : ` · ${between} ${between === 1 ? "stop" : "stops"}`}
+            {between === 0
+              ? m.trip.nextStop
+              : fill(m.trip.stops, {
+                  count: between,
+                  unit: between === 1 ? m.trip.stopOne : m.trip.stopMany,
+                })}
             {published ? ` · ${published.km} km` : null}
           </p>
           {lines.length > 1 || people > 1 || (lines[0]?.off > 0 && !lines[0]?.launchRate) ? (
@@ -345,7 +368,9 @@ function OutputCard({
                 <li key={line.key} className="flex items-baseline justify-between gap-3">
                   <span>
                     {line.label} × {line.count}
-                    {line.off > 0 ? ` · ${Math.round(line.off * 100)}% off` : ""}
+                    {line.off > 0
+                      ? ` · ${fill(m.trip.percentOff, { percent: Math.round(line.off * 100) })}`
+                      : ""}
                   </span>
                   <span className="shrink-0 font-medium text-foreground tabular-nums">
                     {formatRm(line.amount)}
@@ -356,7 +381,11 @@ function OutputCard({
           ) : null}
           {published ? (
             <p className="text-sm text-muted-foreground">
-              {`Transit ${published.transitTime} · Express ${formatRm(published.expressFare)}, ${published.expressTime}`}
+              {fill(m.trip.transitExpress, {
+                time: published.transitTime[locale],
+                fare: formatRm(published.expressFare),
+                expressTime: published.expressTime[locale],
+              })}
             </p>
           ) : null}
         </div>
@@ -380,7 +409,7 @@ function OutputCard({
                       </p>
                     </div>
                     <p className="shrink-0 text-sm text-muted-foreground tabular-nums">
-                      {hop == null ? "Board" : formatRm(hop)}
+                      {hop == null ? m.trip.board : formatRm(hop)}
                     </p>
                   </div>
                 </li>
@@ -389,8 +418,7 @@ function OutputCard({
           </ol>
           {hopSum !== fare ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              The stop-by-stop fares add up to {formatRm(hopSum)}, but the published fare for the
-              whole trip is {formatRm(fare)}.
+              {fill(m.trip.hopNote, { hop: formatRm(hopSum), fare: formatRm(fare) })}
             </p>
           ) : null}
         </div>
@@ -409,33 +437,36 @@ function OutputCard({
       <Drawer>
         <DrawerTrigger
           className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
-          aria-label={`Fare ${formatRm(total)}${discounted ? `, was ${formatRm(baseTotal)}` : ""}, ${from} to ${to}. Open full breakdown`}
+          aria-label={fill(m.trip.drawerAria, {
+            total: formatRm(total),
+            was: discounted ? fill(m.trip.was, { amount: formatRm(baseTotal) }) : "",
+            from,
+            to,
+          })}
         >
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">Starting fare</span>
-            <span className="truncate text-sm font-medium">
-              {from} to {to}
-            </span>
-            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-              View full breakdown
-              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5" />
-            </span>
-          </span>
-          <span className="shrink-0 text-right">
+          <span className="shrink-0 text-left">
             {discounted ? (
               <span className="block text-sm text-muted-foreground tabular-nums line-through">
                 {formatRm(baseTotal)}
               </span>
             ) : null}
-            <FarePrice
+            <AnimatedFarePrice
               amount={total}
               className="text-4xl leading-none font-semibold tracking-tighter"
             />
           </span>
+          <span className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+            <span className="text-xs text-muted-foreground">{m.trip.startingFare}</span>
+            <span className="max-w-full truncate text-sm font-medium">{routeOf(from, to)}</span>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              {m.trip.viewBreakdown}
+              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5" />
+            </span>
+          </span>
         </DrawerTrigger>
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Fare breakdown</DrawerTitle>
+            <DrawerTitle>{m.trip.breakdownTitle}</DrawerTitle>
           </DrawerHeader>
           <div className="scroll-fade max-h-[70dvh] overflow-y-auto px-2 pb-4">
             {renderCard("border-0 ring-0")}
@@ -450,6 +481,7 @@ function OutputCard({
 }
 
 function CopyLinkButton() {
+  const { m } = useI18n();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -458,7 +490,7 @@ function CopyLinkButton() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.prompt("Copy this link", window.location.href);
+      window.prompt(m.trip.copyPrompt, window.location.href);
     }
   }
 
@@ -473,16 +505,14 @@ function CopyLinkButton() {
         strokeWidth={2}
         data-icon="inline-start"
       />
-      <span aria-live="polite">{copied ? "Link copied" : "Copy link"}</span>
+      <span aria-live="polite">{copied ? m.trip.copied : m.trip.copy}</span>
     </Button>
   );
 }
 
 export function TripTab() {
-  const [query, setQuery] = useQueryStates(fareSearchParsers, {
-    urlKeys: fareUrlKeys,
-    clearOnDefault: true,
-  });
+  const { m } = useI18n();
+  const [query, setQuery] = useFareState();
   const phase = usePromoPhase();
   const { from, to, party } = query;
   const isMalaysian = query.my;
@@ -503,41 +533,41 @@ export function TripTab() {
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start">
       <Card>
         <CardHeader>
-          <CardTitle>Where are you going?</CardTitle>
-          <CardDescription>Pick any two of the 16 stations.</CardDescription>
+          <CardTitle>{m.trip.heading}</CardTitle>
+          <CardDescription>{m.trip.subhead}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-8">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
-            <StationSelect id="from" label="From" value={from} onChange={setFrom} />
+            <StationSelect id="from" label={m.trip.from} value={from} onChange={setFrom} />
             <Button
               variant="outline"
               className="h-11 w-full gap-2 sm:w-11 sm:justify-self-center sm:px-0"
-              aria-label="Swap stations"
+              aria-label={m.trip.swap}
               onClick={() => {
                 setFrom(to);
                 setTo(from);
               }}
             >
               <HugeiconsIcon icon={ArrowUpDownIcon} strokeWidth={2} className="sm:hidden" />
-              <span className="sm:hidden">Swap stations</span>
+              <span className="sm:hidden">{m.trip.swap}</span>
               <HugeiconsIcon
                 icon={ArrowLeftRightIcon}
                 strokeWidth={2}
                 className="hidden sm:block"
               />
             </Button>
-            <StationSelect id="to" label="To" value={to} onChange={setTo} />
+            <StationSelect id="to" label={m.trip.to} value={to} onChange={setTo} />
           </div>
 
           <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
             {partyRates.map((rate) => (
               <PartyCount
                 key={rate.key}
-                label={rate.label}
+                label={m.party[rate.key].label}
                 hint={
                   rate.key === "adults" && (phase === "before" || phase === "active") && isMalaysian
-                    ? "Malaysian launch rate · 30% off"
-                    : rate.hint
+                    ? m.party.adults.launchHint
+                    : m.party[rate.key].hint
                 }
                 value={party[rate.key]}
                 onChange={(next) => setParty((current) => ({ ...current, [rate.key]: next }))}
@@ -549,8 +579,8 @@ export function TripTab() {
               checked={isMalaysian}
               detail={
                 phase === "before"
-                  ? `Launch offer starts ${launchPromo.startLabel}. For Malaysian citizens.`
-                  : "30% off for Malaysian citizens."
+                  ? fill(m.trip.launchBefore, { start: m.promo.start })
+                  : m.trip.launchActive
               }
               onChange={(next) => setQuery({ my: next })}
             />

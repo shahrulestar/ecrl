@@ -1,37 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { launchPromo, type PromoPhase } from "@/data/fares";
+import { fill } from "@/i18n/fill";
+import { locales } from "@/i18n/locales";
+import { useI18n } from "@/i18n/provider";
+import { cn } from "@/lib/utils";
+import { fareStateQuery, FARE_QUERY_KEY, legacyFareState } from "@/lib/fare-search";
+import type { PromoPhase } from "@/data/fares";
 import { usePromoPhase } from "@/components/fare/shared";
+import type { Messages } from "@/i18n/types";
 
-const footnotes = [
-  { label: "Return", text: "Same price both ways." },
-  {
-    label: "Pricing",
-    text: "Starting fares. The real price can change with demand, time, and seats left.",
-  },
-  {
-    label: "Concessions",
-    text: "Student 40% off. Child, senior, OKU, and pensioner 50% off. Not a live ticket price.",
-  },
-];
-
-function footnotesFor(phase: PromoPhase | null) {
-  if (phase !== "before" && phase !== "active") return footnotes;
+function footnotesFor(m: Messages, phase: PromoPhase | null) {
+  const notes = [
+    { key: "return", label: m.shell.returnLabel, text: m.shell.returnText },
+    { key: "pricing", label: m.shell.pricingLabel, text: m.shell.pricingText },
+    { key: "concessions", label: m.shell.concessionsLabel, text: m.shell.concessionsText },
+  ];
+  if (phase !== "before" && phase !== "active") return notes;
   return [
-    ...footnotes,
+    ...notes,
     {
-      label: "Launch",
-      text: `Malaysians, ${launchPromo.startLabel} to ${launchPromo.endLabel}. You get this 30% or your concession, whichever is larger.`,
+      key: "launch",
+      label: m.shell.launchLabel,
+      text: fill(m.shell.launchText, { start: m.promo.start, end: m.promo.end }),
     },
   ];
 }
@@ -42,6 +41,7 @@ function ThemeToggle() {
   useEffect(() => {
     setReady(true);
   }, []);
+  const { m } = useI18n();
   const dark = ready && resolvedTheme === "dark";
 
   useEffect(() => {
@@ -66,7 +66,7 @@ function ThemeToggle() {
       variant="outline"
       size="icon"
       className="size-11"
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={dark ? m.shell.themeToLight : m.shell.themeToDark}
       aria-keyshortcuts="D"
       onClick={() => setTheme(dark ? "light" : "dark")}
     >
@@ -87,35 +87,81 @@ function ThemeToggle() {
 }
 
 const tabLinks = [
-  { id: "trip", label: "Your Trip" },
-  { id: "station", label: "By Station" },
-  { id: "table", label: "Fare Table" },
+  { id: "trip", labelKey: "tabTrip" },
+  { id: "station", labelKey: "tabStation" },
+  { id: "table", labelKey: "tabTable" },
 ] as const;
 
-/** Carry the chosen station(s) between tabs so switching does not lose the pick. */
+/** Carry the `q` code between tabs so switching does not lose the pick. */
 function tabHref(id: (typeof tabLinks)[number]["id"], params: URLSearchParams): string {
-  const from = params.get("f") ?? params.get("s");
-  const to = params.get("t");
-  const next = new URLSearchParams();
-  if (id === "station") {
-    if (from) next.set("s", from);
-  } else {
-    if (from) next.set("f", from);
-    if (to) next.set("t", to);
-    if (id === "trip") {
-      const party = params.get("p");
-      const my = params.get("my");
-      if (party) next.set("p", party);
-      if (my) next.set("my", my);
-    }
-  }
-  const qs = next.toString();
-  return `/${id}${qs ? `?${qs}` : ""}`;
+  const q = params.get(FARE_QUERY_KEY);
+  return `/${id}${q ? `?${FARE_QUERY_KEY}=${encodeURIComponent(q)}` : ""}`;
+}
+
+const LEGACY_KEYS = [
+  "f", "t", "p", "s", "my", "from", "to", "adults", "students", "half", "passengers", "concession",
+];
+
+/** Old `f/t/p/s/my` links become a single `q` code. */
+function LegacyParamsRedirect() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+
+  useEffect(() => {
+    const state = legacyFareState(new URLSearchParams(params.toString()));
+    if (!state) return;
+    const rest = new URLSearchParams(params.toString());
+    for (const key of LEGACY_KEYS) rest.delete(key);
+    const qs = fareStateQuery(state);
+    const search = [qs, rest.toString()].filter(Boolean).join("&");
+    router.replace(`${pathname}${search ? `?${search}` : ""}`);
+  }, [params, pathname, router]);
+
+  return null;
+}
+
+function LanguageSwitch() {
+  const { locale, m, setLocale } = useI18n();
+
+  return (
+    <nav
+      aria-label={m.shell.langLabel}
+      className="flex h-11 shrink-0 items-center rounded-lg border p-1 text-xs font-medium"
+    >
+      {locales.map((code) => {
+        const active = code === locale;
+        const name = code === "en" ? m.shell.langEn : m.shell.langMs;
+        return (
+          <button
+            key={code}
+            type="button"
+            lang={code === "en" ? "en-MY" : "ms-MY"}
+            aria-pressed={active}
+            onClick={() => setLocale(code)}
+            aria-label={name}
+            className={cn(
+              "h-full min-w-9 rounded-md px-2.5",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {code === "en" ? "EN" : "BM"}
+          </button>
+        );
+      })}
+    </nav>
+  );
 }
 
 function TabNav() {
-  const pathname = usePathname();
-  const params = useSearchParams();
+  return <TabNavView params={useSearchParams()} />;
+}
+
+function TabNavView({ params }: { params: URLSearchParams }) {
+  const { m } = useI18n();
+  const pathname = usePathname().replace(/^\/ms(?=\/|$)/, "");
   const active = tabLinks.find((tab) => pathname.startsWith(`/${tab.id}`))?.id ?? "trip";
 
   return (
@@ -129,7 +175,7 @@ function TabNav() {
             className="px-3"
             render={<Link href={tabHref(tab.id, params)} />}
           >
-            {tab.label}
+            {m.shell[tab.labelKey]}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -138,19 +184,22 @@ function TabNav() {
 }
 
 export function FareShell({ children }: { children: React.ReactNode }) {
+  const { m } = useI18n();
   const phase = usePromoPhase();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 px-4 pt-6 pb-6 md:px-6 md:pb-10">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="type-page-title">ECRL Fare Calculator</h1>
-          <p className="type-lead max-w-2xl">
-            Check the Economy Transit starting fare between any two stations, Gombak to Kota Bharu.
-            It costs the same in both directions.
-          </p>
+          <h1 className="type-page-title">{m.shell.title}</h1>
+          <p className="type-lead max-w-2xl">{m.shell.lead}</p>
         </div>
-        <TabNav />
+        <Suspense>
+          <LegacyParamsRedirect />
+        </Suspense>
+        <Suspense fallback={<TabNavView params={new URLSearchParams()} />}>
+          <TabNav />
+        </Suspense>
         <div className="pt-0">{children}</div>
       </main>
       <footer className="mt-auto max-md:pb-32">
@@ -158,30 +207,29 @@ export function FareShell({ children }: { children: React.ReactNode }) {
           <Card>
             <CardContent className="flex flex-col gap-6">
               <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                {footnotesFor(phase).map((note) => (
-                  <div key={note.label} className="flex flex-col gap-0.5">
+                {footnotesFor(m, phase).map((note) => (
+                  <div key={note.key} className="flex flex-col gap-0.5">
                     <dt className="font-medium text-foreground">{note.label}</dt>
                     <dd className="leading-relaxed text-muted-foreground">{note.text}</dd>
                   </div>
                 ))}
               </dl>
-              <Separator />
               <div className="flex items-center justify-between gap-4">
                 <div className="flex min-w-0 flex-col gap-1">
                   <p className="text-xs text-muted-foreground">
-                    Learn more on the{" "}
+                    {m.shell.learnMoreBefore}
                     <a
                       href="https://ecrl.com.my/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-foreground underline-offset-4 hover:underline"
                     >
-                      ECRL website
+                      {m.shell.learnMoreLink}
                     </a>
-                    .
+                    {m.shell.learnMoreAfter}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Built by{" "}
+                    {m.shell.builtBy}{" "}
                     <a
                       href="https://shahrulestar.com"
                       className="font-medium text-foreground underline-offset-4 hover:underline"
@@ -190,7 +238,10 @@ export function FareShell({ children }: { children: React.ReactNode }) {
                     </a>
                   </p>
                 </div>
-                <ThemeToggle />
+                <div className="flex shrink-0 items-center gap-2">
+                  <LanguageSwitch />
+                  <ThemeToggle />
+                </div>
               </div>
             </CardContent>
           </Card>

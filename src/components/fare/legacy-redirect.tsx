@@ -2,22 +2,20 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fareQueryString, parseFareSearch, partyFromSearch } from "@/lib/fare-search";
+import { fareStateQuery, legacyFareState } from "@/lib/fare-search";
 
-/** Old links used `/?from=Kota Bharu&adults=2`. Send them to the short `/trip` URL. */
+/** Old links used `/?from=Kota Bharu&adults=2` or `/?f=kb&t=gombak`. Send them to `/trip?q=...`. */
 export function LegacyRedirect() {
   const router = useRouter();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const search = parseFareSearch(Object.fromEntries(params.entries()));
-    const party = partyFromSearch(search);
-    const qs = fareQueryString({
-      from: search.from,
-      to: search.to,
-      ...party,
-      my: params.get("my") !== "false",
-    });
+    const state = params.has("q") ? null : legacyFareState(params);
+    const qs = state
+      ? fareStateQuery(state)
+      : params.has("q")
+        ? `q=${encodeURIComponent(params.get("q") ?? "")}`
+        : "";
     router.replace(`/trip${qs ? `?${qs}` : ""}`);
   }, [router]);
 
