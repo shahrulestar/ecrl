@@ -7,10 +7,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteUrl();
   if (!base) return [];
   return [
-    {
-      url: new URL("/", base).href,
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-  ];
+    { path: "/trip", priority: 1 },
+    { path: "/station", priority: 0.7 },
+    { path: "/table", priority: 0.7 },
+  ].map(({ path, priority }) => ({
+    url: new URL(path, base).href,
+    changeFrequency: "monthly" as const,
+    priority,
+  }));
 }

@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { FareApp } from "@/components/fare-app";
+import { LegacyRedirect } from "@/components/fare/legacy-redirect";
 
 export default function Page() {
   return (
     <Suspense>
-      <FareApp />
+      <LegacyRedirect />
     </Suspense>
   );
 }

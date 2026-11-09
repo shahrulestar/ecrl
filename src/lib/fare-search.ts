@@ -1,29 +1,62 @@
-import { createParser, parseAsBoolean, parseAsStringLiteral } from "nuqs/server";
-import { stations, type StationName } from "@/data/fares";
+import { createParser, parseAsBoolean } from "nuqs/server";
+import { slugToStation, stations, stationToSlug, type StationName } from "@/data/fares";
 
 export const PARTY_MAX = 9;
 
-const stationNames = stations.map((station) => station.name);
-
-const parseAsPartyCount = createParser({
-  parse: (value) => clampCount(value) ?? 0,
-  serialize: String,
-});
-
-export const fareSearchParsers = {
-  from: parseAsStringLiteral(stationNames),
-  to: parseAsStringLiteral(stationNames),
-  adults: parseAsPartyCount,
-  students: parseAsPartyCount,
-  half: parseAsPartyCount,
-  my: parseAsBoolean.withDefault(true),
-};
-
-export type Party = {
+export interface Party {
   adults: number;
   students: number;
   half: number;
+}
+
+export const DEFAULT_PARTY: Party = { adults: 1, students: 0, half: 0 };
+
+/** Party as `adults.students.half`, trailing zeros dropped: `2`, `2.1`, `0.0.3`. */
+export function encodePartyParam(party: Party): string {
+  const counts = [party.adults, party.students, party.half];
+  while (counts.length > 1 && counts[counts.length - 1] === 0) counts.pop();
+  return counts.join(".");
+}
+
+export function decodePartyParam(value: string): Party | null {
+  const parts = value.split(".");
+  if (parts.length > 3) return null;
+  const [adults, students = 0, half = 0] = parts.map((part) => clampCount(part));
+  if (adults === undefined || students === undefined || half === undefined) return null;
+  return { adults, students, half };
+}
+
+const parseAsStationSlug = createParser<StationName>({
+  parse: slugToStation,
+  serialize: stationToSlug,
+});
+
+const parseAsParty = createParser<Party>({
+  parse: decodePartyParam,
+  serialize: encodePartyParam,
+  eq: (a, b) => a.adults === b.adults && a.students === b.students && a.half === b.half,
+});
+
+export const fareSearchParsers = {
+  from: parseAsStationSlug,
+  to: parseAsStationSlug,
+  party: parseAsParty.withDefault(DEFAULT_PARTY),
+  my: parseAsBoolean.withDefault(true),
 };
+
+/** Short URL keys for the trip and table pages. */
+export const fareUrlKeys = { from: "f", to: "t", party: "p", my: "my" } as const;
+
+/** Station page: one station, shown as `?s=kb`. */
+export const stationSearchParsers = { from: fareSearchParsers.from };
+export const stationUrlKeys = { from: "s" } as const;
+
+/** Table page: only reads the current pair to highlight it. */
+export const tableSearchParsers = {
+  from: fareSearchParsers.from,
+  to: fareSearchParsers.to,
+};
+export const tableUrlKeys = { from: "f", to: "t" } as const;
 
 export type FareSearch = {
   from?: StationName;
@@ -53,7 +86,7 @@ export function partyFromSearch(search: FareSearch): Party {
       half: search.half ?? 0,
     };
   }
-  return { adults: 1, students: 0, half: 0 };
+  return DEFAULT_PARTY;
 }
 
 export function parseFareSearch(search: Record<string, unknown>): FareSearch {
@@ -102,10 +135,15 @@ export function fareSearchParams(input: {
 
 export function fareQueryString(search: FareSearch): string {
   const qs = new URLSearchParams();
-  for (const key of ["from", "to", "adults", "students", "half"] as const) {
-    const value = search[key];
-    if (value !== undefined) qs.set(key, String(value));
-  }
-  if (search.my === false) qs.set("my", "false");
+  if (search.from) qs.set(fareUrlKeys.from, stationToSlug(search.from));
+  if (search.to) qs.set(fareUrlKeys.to, stationToSlug(search.to));
+  const party = partyFromSearch(search);
+  if (encodePartyParam(party) !== encodePartyParam(DEFAULT_PARTY))
+    qs.set(fareUrlKeys.party, encodePartyParam(party));
+  if (search.my === false) qs.set(fareUrlKeys.my, "false");
   return qs.toString();
+}
+
+export function tripHref(from: StationName, to: StationName): string {
+  return `/trip?${fareQueryString({ from, to })}`;
 }
