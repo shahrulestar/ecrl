@@ -761,8 +761,7 @@ export function FareApp() {
                     <StationSelect id="from" label="From" value={from} onChange={setFrom} />
                     <Button
                       variant="outline"
-                      size="icon"
-                      className="size-11 justify-self-center"
+                      className="h-11 w-full gap-2 sm:w-11 sm:justify-self-center sm:px-0"
                       aria-label="Swap stations"
                       onClick={() => {
                         setFrom(to);
@@ -770,6 +769,7 @@ export function FareApp() {
                       }}
                     >
                       <HugeiconsIcon icon={ArrowUpDownIcon} strokeWidth={2} className="sm:hidden" />
+                      <span className="sm:hidden">Swap stations</span>
                       <HugeiconsIcon
                         icon={ArrowLeftRightIcon}
                         strokeWidth={2}
