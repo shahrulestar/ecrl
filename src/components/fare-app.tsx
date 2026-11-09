@@ -28,13 +28,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -43,6 +37,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -95,16 +90,26 @@ const partyRates = [
 ] as const;
 
 const footnotes = [
-  "Return trips cost the same as the trip out.",
-  "ECRL uses dynamic pricing. These are the announced starting prices, and the real price can change with demand, time, and how many seats are left.",
-  "Student and concession prices are the starting fare with the announced 40% or 50% taken off. They aren't live ticket prices.",
+  { label: "Return", text: "Same price both ways." },
+  {
+    label: "Pricing",
+    text: "Starting fares. The real price can change with demand, time, and seats left.",
+  },
+  {
+    label: "Concessions",
+    text: "Student 40% off. Child, senior, OKU, and pensioner 50% off. Not a live ticket price.",
+  },
 ];
-
-const launchFootnote = `Launch offer for Malaysian citizens, ${launchPromo.startLabel} to ${launchPromo.endLabel}. Fares return to normal after. The 30% does not stack with the student or concession rate; each passenger gets the larger one.`;
 
 function footnotesFor(phase: PromoPhase | null) {
   if (phase !== "before" && phase !== "active") return footnotes;
-  return [...footnotes, launchFootnote];
+  return [
+    ...footnotes,
+    {
+      label: "Launch",
+      text: `Malaysians, ${launchPromo.startLabel} to ${launchPromo.endLabel}. You get this 30% or your concession, whichever is larger.`,
+    },
+  ];
 }
 
 type TabId = "quote" | "line" | "matrix";
@@ -179,12 +184,30 @@ function ThemeToggle() {
   }, []);
   const dark = ready && resolvedTheme === "dark";
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== "d" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.repeat || event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable], [role=combobox], [role=listbox]",
+        )
+      )
+        return;
+      setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [resolvedTheme, setTheme]);
+
   return (
     <Button
       variant="outline"
       size="icon"
       className="size-11"
       aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-keyshortcuts="D"
       onClick={() => setTheme(dark ? "light" : "dark")}
     >
       <span className="relative size-4">
@@ -301,9 +324,11 @@ function PromoBanner({ phase }: { phase: PromoPhase | null }) {
 
 function MalaysianSwitch({
   checked,
+  detail,
   onChange,
 }: {
   checked: boolean;
+  detail: string;
   onChange: (next: boolean) => void;
 }) {
   return (
@@ -315,10 +340,8 @@ function MalaysianSwitch({
       className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left"
     >
       <span className="min-w-0">
-        <span className="block text-sm font-medium">Malaysian citizen</span>
-        <span className="block text-xs text-muted-foreground">
-          Launch discount applies to Malaysians only
-        </span>
+        <span className="block text-sm font-medium">Launch Discount</span>
+        <span className="block text-xs text-muted-foreground">{detail}</span>
       </span>
       <span
         className={cn(
@@ -434,8 +457,8 @@ function OutputCard({
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>No passengers</AlertTitle>
             <AlertDescription>
-              Add at least one adult, student, or concession passenger. Each type has its own
-              price, and the total adds them up.
+              Add at least one adult, student, or concession passenger. Each type has its own price,
+              and the total adds them up.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -497,47 +520,25 @@ function OutputCard({
           </p>
           <p className="text-sm text-muted-foreground max-md:text-xs/relaxed">
             {direction}
-            {between === 0
-              ? " · next stop"
-              : ` · ${between} ${between === 1 ? "stop" : "stops"} in between`}
+            {between === 0 ? " · next stop" : ` · ${between} ${between === 1 ? "stop" : "stops"}`}
             {published ? ` · ${published.km} km` : null}
           </p>
-          {lines.length > 1 || lines[0]?.off ? (
+          {lines.length > 1 || people > 1 || (lines[0]?.off > 0 && !lines[0]?.launchRate) ? (
             <ul className="flex flex-col gap-1 text-sm text-muted-foreground max-md:text-xs/relaxed">
               {lines.map((line) => (
                 <li key={line.key} className="flex items-baseline justify-between gap-3">
                   <span>
                     {line.label} × {line.count}
-                    {line.launchRate
-                      ? " · Malaysian launch rate · 30% off"
-                      : line.off > 0
-                        ? ` · ${line.hint}`
-                        : ""}
+                    {line.off > 0 ? ` · ${Math.round(line.off * 100)}% off` : ""}
                   </span>
                   <span className="shrink-0">{formatRm(line.amount)}</span>
                 </li>
               ))}
             </ul>
-          ) : people > 1 ? (
-            <p className="text-sm text-muted-foreground">
-              {formatRm(fare)} × {people} adults
-            </p>
           ) : null}
           {published ? (
-            <div className="flex flex-col gap-1 text-sm text-muted-foreground max-md:text-xs/relaxed">
-              <p>Transit takes {published.transitTime}</p>
-              <p>
-                Express from {formatRm(published.expressFare)}, takes {published.expressTime}
-              </p>
-            </div>
-          ) : null}
-          <p className="text-xs leading-relaxed text-muted-foreground max-md:text-[11px] max-md:leading-snug">
-            This is the published starting price. The real price can change with the time, demand,
-            and seats left. The return trip costs the same.
-          </p>
-          {promoActive && isMalaysian ? (
-            <p className="text-xs leading-relaxed text-muted-foreground max-md:text-[11px] max-md:leading-snug">
-              {launchFootnote}
+            <p className="text-sm text-muted-foreground max-md:text-xs/relaxed">
+              {`Transit ${published.transitTime} · Express ${formatRm(published.expressFare)}, ${published.expressTime}`}
             </p>
           ) : null}
         </div>
@@ -636,8 +637,16 @@ function CopyLinkButton() {
   }
 
   return (
-    <Button type="button" className="h-11 w-full text-sm [&_svg:not([class*='size-'])]:size-4" onClick={copy}>
-      <HugeiconsIcon icon={copied ? Tick02Icon : Copy01Icon} strokeWidth={2} data-icon="inline-start" />
+    <Button
+      type="button"
+      className="h-11 w-full text-sm [&_svg:not([class*='size-'])]:size-4"
+      onClick={copy}
+    >
+      <HugeiconsIcon
+        icon={copied ? Tick02Icon : Copy01Icon}
+        strokeWidth={2}
+        data-icon="inline-start"
+      />
       <span aria-live="polite">{copied ? "Link copied" : "Copy link"}</span>
     </Button>
   );
@@ -713,16 +722,13 @@ export function FareApp() {
     <div className="flex min-h-screen flex-col bg-background">
       <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 px-4 pt-6 pb-6 md:px-6 md:pb-10">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">ECRL Fare Calculator</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            ECRL Fare Calculator
+          </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Check the Economy Transit starting fare between any two stations, Gombak to Kota
-            Bharu. It costs the same in both directions.
+            Check the Economy Transit starting fare between any two stations, Gombak to Kota Bharu.
+            It costs the same in both directions.
           </p>
-          {phase === "before" ? (
-            <p className="text-xs text-muted-foreground">
-              Launch offer starts {launchPromo.startLabel}.
-            </p>
-          ) : null}
         </div>
 
         <Tabs
@@ -736,7 +742,7 @@ export function FareApp() {
               Your trip
             </TabsTrigger>
             <TabsTrigger value="line" className="px-3">
-              By station
+              By Station
             </TabsTrigger>
             <TabsTrigger value="matrix" className="px-3">
               Fare table
@@ -790,9 +796,14 @@ export function FareApp() {
                       />
                     ))}
                   </div>
-                  {phase === "active" ? (
+                  {phase === "before" || phase === "active" ? (
                     <MalaysianSwitch
                       checked={isMalaysian}
+                      detail={
+                        phase === "before"
+                          ? `Launch offer starts ${launchPromo.startLabel}. For Malaysian citizens.`
+                          : "30% off for Malaysian citizens."
+                      }
                       onChange={(next) => setQuery({ my: next })}
                     />
                   ) : null}
@@ -888,7 +899,11 @@ export function FareApp() {
                     <TableRow>
                       <TableHead className="sticky left-0 z-10 w-40 bg-card">Board</TableHead>
                       {stations.map((station) => (
-                        <TableHead key={station.name} className="px-1 text-center" title={station.name}>
+                        <TableHead
+                          key={station.name}
+                          className="px-1 text-center"
+                          title={station.name}
+                        >
                           {code(station.index)}
                         </TableHead>
                       ))}
@@ -931,40 +946,48 @@ export function FareApp() {
             </Card>
           </TabsContent>
         </Tabs>
-
       </main>
-      <footer className="mt-auto border-t max-md:pb-32">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-4 py-6 md:px-6">
-          <ul className="flex max-w-2xl flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
-            {footnotesFor(phase).map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-col gap-1">
-              <p className="text-xs text-muted-foreground">
-                <a
-                  href="https://ecrl.com.my/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  Learn more
-                </a>{" "}
-                on the official ECRL website.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Built by{" "}
-                <a
-                  href="https://shahrulestar.com"
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  shahrulestar.com
-                </a>
-              </p>
-            </div>
-            <ThemeToggle />
-          </div>
+      <footer className="mt-auto max-md:pb-32">
+        <div className="mx-auto w-full max-w-page px-4 pb-6 md:px-6 md:pb-10">
+          <Card>
+            <CardContent className="flex flex-col gap-6">
+              <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                {footnotesFor(phase).map((note) => (
+                  <div key={note.label} className="flex flex-col gap-0.5">
+                    <dt className="font-medium text-foreground">{note.label}</dt>
+                    <dd className="leading-relaxed text-muted-foreground">{note.text}</dd>
+                  </div>
+                ))}
+              </dl>
+              <Separator />
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <p className="text-xs text-muted-foreground">
+                    Learn more on the{" "}
+                    <a
+                      href="https://ecrl.com.my/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      ECRL website
+                    </a>
+                    .
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Built by{" "}
+                    <a
+                      href="https://shahrulestar.com"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      shahrulestar.com
+                    </a>
+                  </p>
+                </div>
+                <ThemeToggle />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </footer>
     </div>
