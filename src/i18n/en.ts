@@ -52,9 +52,13 @@ export const en = {
     langLabel: "Language",
     langEn: "English",
     langMs: "Bahasa Melayu",
+    shortcutTheme: "Theme",
+    shortcutSwap: "Swap stations",
+    shortcutSearch: "Station search",
   },
   shared: {
-    placeholder: "Pick a station",
+    placeholder: "Type or pick a station",
+    noMatch: "No station matches",
     promoBanner:
       "Malaysian citizens get 30% off from {start} to {end}. Prices below do not include the discount.",
   },

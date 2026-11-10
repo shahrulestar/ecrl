@@ -465,10 +465,6 @@ export function promoPhase(date: string): PromoPhase {
   return "active";
 }
 
-export function isPromoActive(date: string): boolean {
-  return promoPhase(date) === "active";
-}
-
 /** Largest single discount. The launch rate does not stack on top of a concession. */
 export function effectiveOff(baseOff: number, isMalaysian: boolean, promoActive: boolean): number {
   if (!isMalaysian || !promoActive) return baseOff;
@@ -494,14 +490,6 @@ export const stationSlugByName = {
   "Pasir Puteh": "pp",
   "Kota Bharu": "kb",
 } as const satisfies Record<StationName, string>;
-
-export type StationSlug = (typeof stationSlugByName)[StationName];
-
-export const stationSlugs = Object.values(stationSlugByName) as StationSlug[];
-
-export function stationToSlug(name: StationName): StationSlug {
-  return stationSlugByName[name];
-}
 
 export function slugToStation(slug: string): StationName | null {
   const hit = stations.find((s) => stationSlugByName[s.name] === slug);

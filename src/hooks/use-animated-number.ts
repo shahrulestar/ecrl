@@ -14,7 +14,7 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function useAnimatedNumber(target: number, durationMs = 900) {
+export function useAnimatedNumber(target: number, durationMs = 350) {
   const [display, setDisplay] = useState(() => sen(target));
   const displayRef = useRef(display);
   const first = useRef(true);

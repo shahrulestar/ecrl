@@ -1,24 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Label } from "@/components/ui/label";
+import { useRef, useSyncExternalStore } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxTrigger,
+} from "@/components/ui/combobox";
+import { InputGroupAddon } from "@/components/ui/input-group";
+import { Kbd } from "@/components/ui/kbd";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fill } from "@/i18n/fill";
 import { useI18n } from "@/i18n/provider";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { cn } from "@/lib/utils";
 import {
   formatAmount,
+  launchPromo,
   promoDateFrom,
   promoPhase,
+  stationIndex,
   stations,
   type PromoPhase,
   type StationName,
@@ -26,18 +34,34 @@ import {
 
 const STATES = ["Selangor", "Pahang", "Terengganu", "Kelantan"] as const;
 
-export function usePromoPhase(): PromoPhase | null {
-  const [promoDate, setPromoDate] = useState<string | null>(null);
+interface StationGroup {
+  value: (typeof STATES)[number];
+  items: StationName[];
+}
 
-  useEffect(() => {
-    const override =
-      process.env.NODE_ENV !== "production"
-        ? new URLSearchParams(window.location.search).get("today")
-        : null;
-    setPromoDate(promoDateFrom(new Date(), override));
-  }, []);
+const stationGroups: StationGroup[] = STATES.map((state) => ({
+  value: state,
+  items: stations.filter((station) => station.state === state).map((station) => station.name),
+}));
 
-  return promoDate ? promoPhase(promoDate) : null;
+/** The phase on the day the site was built. It is what the static HTML shows. */
+const buildPhase = promoPhase(process.env.NEXT_PUBLIC_BUILD_DATE ?? launchPromo.start);
+
+function subscribeToNothing() {
+  return () => {};
+}
+
+function todayPhase(): PromoPhase {
+  const override =
+    process.env.NODE_ENV !== "production"
+      ? new URLSearchParams(window.location.search).get("today")
+      : null;
+  return promoPhase(promoDateFrom(new Date(), override));
+}
+
+/** Build-day phase in the static HTML, then today's phase once the page is live. */
+export function usePromoPhase(): PromoPhase {
+  return useSyncExternalStore(subscribeToNothing, todayPhase, () => buildPhase);
 }
 
 function isStation(value: unknown): value is StationName {
@@ -48,58 +72,111 @@ export function code(index: number) {
   return String(index).padStart(2, "0");
 }
 
+/** Match on the name, the two-digit code ("07") or the state. */
+function matchesStation(name: StationName, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const station = stations[stationIndex(name)];
+  return (
+    name.toLowerCase().includes(q) ||
+    code(station.index).startsWith(q) ||
+    station.state.toLowerCase().startsWith(q)
+  );
+}
+
 export function StationSelect({
   id,
   label,
   value,
   onChange,
-  fit = false,
 }: {
   id: string;
   label: string;
   value: StationName | null;
   onChange: (value: StationName) => void;
-  fit?: boolean;
 }) {
   const { m } = useI18n();
+  const listRef = useRef<HTMLDivElement>(null);
+  const searchable = id === "from" || id === "line-from";
+  const isOpen = useRef(false);
+  const wasOpenAtPress = useRef(false);
+
+  /** Bring the picked station into view, as a native select does. */
+  function revealPicked() {
+    const list = listRef.current;
+    const picked = list?.querySelector('[aria-selected="true"]');
+    if (!list || !picked) return;
+    const listBox = list.getBoundingClientRect();
+    const pickedBox = picked.getBoundingClientRect();
+    list.scrollTop += pickedBox.top - listBox.top - (listBox.height - pickedBox.height) / 2;
+  }
 
   return (
-    <div className={cn("flex flex-col gap-2", fit ? "w-fit max-w-full self-start" : "min-w-0")}>
+    <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Select
+      <Combobox
+        items={stationGroups}
         value={value}
         onValueChange={(next) => {
           if (isStation(next)) onChange(next);
         }}
+        onOpenChange={(open) => {
+          isOpen.current = open;
+          if (open) requestAnimationFrame(revealPicked);
+        }}
+        filter={matchesStation}
+        autoHighlight
       >
-        <SelectTrigger id={id} className={cn("min-h-11", fit ? "w-fit" : "w-full")}>
-          <SelectValue placeholder={m.shared.placeholder} />
-        </SelectTrigger>
-        <SelectContent
-          side="bottom"
-          align="start"
-          alignItemWithTrigger={false}
-          className={cn("max-h-[min(18rem,var(--available-height))]", fit && "w-max")}
-          style={fit ? { width: "max-content", minWidth: "var(--anchor-width)" } : undefined}
-        >
-          {STATES.map((state) => (
-            <SelectGroup key={state}>
-              <SelectLabel>{state}</SelectLabel>
-              {stations
-                .filter((station) => station.state === state)
-                .map((station) => (
-                  <SelectItem
-                    key={station.name}
-                    value={station.name}
-                    className={cn("min-h-11 cursor-pointer", fit && "w-auto")}
-                  >
-                    {code(station.index)} {station.name}
-                  </SelectItem>
-                ))}
-            </SelectGroup>
-          ))}
-        </SelectContent>
-      </Select>
+        <Tooltip {...(searchable ? {} : { open: false })}>
+          <TooltipTrigger render={<div className="w-full min-w-0" />}>
+            <ComboboxInput
+              id={id}
+              placeholder={m.shared.placeholder}
+              aria-keyshortcuts={searchable ? "/" : undefined}
+              className="h-11 w-full [&_input]:h-full [&_input]:text-base sm:[&_input]:text-sm"
+              showTrigger={false}
+              onPointerDown={() => {
+                wasOpenAtPress.current = isOpen.current;
+              }}
+              onClick={(event) => {
+                // The click that opens the list selects the name, so typing replaces it.
+                if (!wasOpenAtPress.current) event.currentTarget.select();
+              }}
+            >
+              {/* The input already opens the list, so the chevron stays out of the tab order. */}
+              <InputGroupAddon align="inline-end">
+                <ComboboxTrigger
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="flex size-6 items-center justify-center"
+                />
+              </InputGroupAddon>
+            </ComboboxInput>
+          </TooltipTrigger>
+          {searchable ? (
+            <TooltipContent className="max-md:hidden">
+              {m.shell.shortcutSearch} <Kbd>/</Kbd>
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+        <ComboboxContent>
+          <ComboboxEmpty>{m.shared.noMatch}</ComboboxEmpty>
+          <ComboboxList ref={listRef}>
+            {(group: StationGroup) => (
+              <ComboboxGroup key={group.value} items={group.items}>
+                <ComboboxLabel>{group.value}</ComboboxLabel>
+                <ComboboxCollection>
+                  {(name: StationName) => (
+                    <ComboboxItem key={name} value={name} className="min-h-11 text-sm/relaxed">
+                      {code(stations[stationIndex(name)].index)} {name}
+                    </ComboboxItem>
+                  )}
+                </ComboboxCollection>
+              </ComboboxGroup>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
     </div>
   );
 }

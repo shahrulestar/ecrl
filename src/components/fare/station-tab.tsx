@@ -55,7 +55,7 @@ export function StationTab() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="grid gap-1 md:grid-flow-col md:gap-x-4 md:grid-cols-2 md:grid-rows-8 lg:grid-cols-3 lg:grid-rows-5">
             {stations
               .filter((station) => station.name !== from)
               .map((station) => {

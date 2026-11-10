@@ -140,6 +140,16 @@ function MapInner({
     anchorX: number
     anchorY: number
   } | null>(null)
+  const wheelIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const momentumFrame = useRef(0)
+  const lastZoomAtRef = useRef(0)
+  const lastTouchTapRef = useRef<{ t: number; x: number; y: number } | null>(null)
+  const velocitySamples = useRef<{ t: number; x: number; y: number }[]>([])
+
+  const stopMomentum = useCallback(() => {
+    if (momentumFrame.current) cancelAnimationFrame(momentumFrame.current)
+    momentumFrame.current = 0
+  }, [])
 
   const regionOverrides = useMemo(() => {
     return new Map(regions?.map((region) => [region.id, region]) ?? [])
@@ -196,12 +206,17 @@ function MapInner({
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const delta = e.deltaY > 0 ? -zoomConfig.zoomStep : zoomConfig.zoomStep
+      stopMomentum()
+      setIsGesture(true)
+      if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current)
+      wheelIdleRef.current = setTimeout(() => setIsGesture(false), 120)
+      // Trackpad pinches arrive as ctrl+wheel with small deltas. Follow the delta.
+      const k = e.ctrlKey ? 0.01 : 0.0015
 
       setZoomState((prev) => {
         const newScale = Math.max(
           zoomConfig.minZoom,
-          Math.min(zoomConfig.maxZoom, prev.scale + delta)
+          Math.min(zoomConfig.maxZoom, prev.scale * Math.exp(-e.deltaY * k))
         )
         if (newScale === prev.scale) return prev
 
@@ -233,7 +248,44 @@ function MapInner({
 
     svg.addEventListener('wheel', handleWheel, { passive: false })
     return () => svg.removeEventListener('wheel', handleWheel)
-  }, [enableZoom, zoomConfig, setZoomState, viewBox, clampTranslate])
+  }, [enableZoom, zoomConfig, setZoomState, viewBox, clampTranslate, stopMomentum])
+
+  const zoomAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const now = performance.now()
+      if (now - lastZoomAtRef.current < 350) return
+      lastZoomAtRef.current = now
+      stopMomentum()
+      const svg = svgRef.current
+      setZoomState((prev) => {
+        if (prev.scale >= zoomConfig.maxZoom - 0.001) {
+          return { scale: zoomConfig.minZoom, translateX: 0, translateY: 0 }
+        }
+        const newScale = Math.min(zoomConfig.maxZoom, prev.scale + zoomConfig.zoomStep)
+        const ctm = svg?.getScreenCTM()
+        if (!ctm || newScale === prev.scale) return { ...prev, scale: newScale }
+        const point = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse())
+        const ratio = newScale / prev.scale
+        const clamped = clampTranslate(
+          point.x - ratio * (point.x - prev.translateX),
+          point.y - ratio * (point.y - prev.translateY),
+          newScale,
+        )
+        return { scale: newScale, translateX: clamped.tx, translateY: clamped.ty }
+      })
+    },
+    [clampTranslate, setZoomState, stopMomentum, zoomConfig.maxZoom, zoomConfig.minZoom, zoomConfig.zoomStep],
+  )
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      stopMomentum()
+      setIsGesture(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [stopMomentum])
 
   // Click-and-drag pan — use document-level move/up so we don't steal
   // pointer events from child <path> elements (setPointerCapture would
@@ -241,6 +293,8 @@ function MapInner({
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       if (!enableZoom || e.button !== 0) return
+      stopMomentum()
+      velocitySamples.current = []
       // Only start drag from the SVG background or zoom layer, not from regions
       const target = e.target as Element
       if (target.closest('[data-slot="map-region"]')) {
@@ -264,7 +318,7 @@ function MapInner({
         ty: zoomState.translateY,
       }
     },
-    [enableZoom, zoomState.translateX, zoomState.translateY]
+    [enableZoom, stopMomentum, zoomState.translateX, zoomState.translateY]
   )
 
   // Document-level pointermove/pointerup for drag panning
@@ -279,6 +333,9 @@ function MapInner({
       // Movement threshold to distinguish from click
       if (!isPanningRef.current && Math.hypot(dx, dy) < 3) return
       isPanningRef.current = true
+      const now = performance.now()
+      velocitySamples.current.push({ t: now, x: e.clientX, y: e.clientY })
+      velocitySamples.current = velocitySamples.current.filter((sample) => sample.t >= now - 100)
 
       const svg = svgRef.current
       if (!svg) return
@@ -298,14 +355,63 @@ function MapInner({
       }))
     }
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
       if (!dragStartRef.current) return
+      const wasPanning = isPanningRef.current
       dragStartRef.current = null
       // Delay clearing so click handlers can check isPanning
       requestAnimationFrame(() => {
         isPanningRef.current = false
-        setIsGesture(false)
       })
+      const samples = velocitySamples.current
+      velocitySamples.current = []
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      const elapsed = first && last ? last.t - first.t : 0
+      const coast =
+        wasPanning &&
+        !reduced &&
+        (e.pointerType === 'touch' || e.pointerType === 'pen') &&
+        elapsed > 0 &&
+        samples.length >= 2
+      if (coast && first && last) {
+        let vx = (last.x - first.x) / elapsed
+        let vy = (last.y - first.y) / elapsed
+        if (Math.hypot(vx, vy) > 0.3) {
+          let lastFrame = performance.now()
+          const step = (now: number) => {
+            const frameDt = Math.min(32, now - lastFrame)
+            lastFrame = now
+            vx *= 0.95
+            vy *= 0.95
+            if (Math.hypot(vx, vy) < 0.02) {
+              momentumFrame.current = 0
+              setIsGesture(false)
+              return
+            }
+            const ctm = svgRef.current?.getScreenCTM()
+            if (!ctm) {
+              momentumFrame.current = 0
+              setIsGesture(false)
+              return
+            }
+            setZoomState((prev) => {
+              const clamped = clampTranslate(
+                prev.translateX + (vx * frameDt) / ctm.a,
+                prev.translateY + (vy * frameDt) / ctm.d,
+                prev.scale,
+              )
+              return { ...prev, translateX: clamped.tx, translateY: clamped.ty }
+            })
+            momentumFrame.current = requestAnimationFrame(step)
+          }
+          setIsGesture(true)
+          momentumFrame.current = requestAnimationFrame(step)
+          return
+        }
+      }
+      setIsGesture(false)
     }
 
     document.addEventListener('pointermove', handlePointerMove)
@@ -341,6 +447,7 @@ function MapInner({
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault()
+        stopMomentum()
         const dist = getTouchDist(e)
         const mid = getTouchMid(e)
         if (dist !== null && mid) {
@@ -384,8 +491,24 @@ function MapInner({
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2 && pinchStartRef.current) {
         pinchStartRef.current = null
+        lastTouchTapRef.current = null
         setIsGesture(false)
+        return
       }
+      if (e.touches.length > 0 || isPanningRef.current || e.changedTouches.length !== 1) return
+      const touch = e.changedTouches[0]
+      const now = performance.now()
+      const prev = lastTouchTapRef.current
+      if (
+        prev &&
+        now - prev.t < 300 &&
+        Math.hypot(touch.clientX - prev.x, touch.clientY - prev.y) < 24
+      ) {
+        lastTouchTapRef.current = null
+        zoomAt(touch.clientX, touch.clientY)
+        return
+      }
+      lastTouchTapRef.current = { t: now, x: touch.clientX, y: touch.clientY }
     }
 
     svg.addEventListener('touchstart', handleTouchStart, { passive: false })
@@ -396,7 +519,7 @@ function MapInner({
       svg.removeEventListener('touchmove', handleTouchMove)
       svg.removeEventListener('touchend', handleTouchEnd)
     }
-  }, [enableZoom, zoomConfig, zoomState, setZoomState, clampTranslate])
+  }, [enableZoom, zoomAt, zoomConfig, zoomState, setZoomState, clampTranslate, stopMomentum])
 
   const shouldSuppressClick = useCallback(() => {
     return enableZoom && isPanningRef.current
@@ -549,6 +672,14 @@ function MapInner({
             : undefined
         }
         onPointerDown={enableZoom ? handlePointerDown : undefined}
+        onDoubleClick={
+          enableZoom
+            ? (event) => {
+                event.preventDefault()
+                zoomAt(event.clientX, event.clientY)
+              }
+            : undefined
+        }
         onPointerLeave={() => {
           if (showTooltips) {
             setTooltipState((current) => ({ ...current, visible: false }))

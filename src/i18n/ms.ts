@@ -56,9 +56,13 @@ export const ms: Messages = {
     langLabel: "Bahasa",
     langEn: "English",
     langMs: "Bahasa Melayu",
+    shortcutTheme: "Tema",
+    shortcutSwap: "Tukar stesen",
+    shortcutSearch: "Cari stesen",
   },
   shared: {
-    placeholder: "Pilih stesen",
+    placeholder: "Taip atau pilih stesen",
+    noMatch: "Tiada stesen sepadan",
     promoBanner:
       "Warganegara Malaysia dapat diskaun 30% dari {start} hingga {end}. Harga di bawah belum termasuk diskaun.",
   },

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { en } from "@/i18n/en";
 import { ms } from "@/i18n/ms";
 import { I18nProvider } from "@/i18n/provider";
@@ -16,6 +17,7 @@ export const viewport: Viewport = {
   themeColor: "#2563EB",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -77,9 +79,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <ThemeProvider>
-          <NuqsAdapter>
-            <I18nProvider>{children}</I18nProvider>
-          </NuqsAdapter>
+          <TooltipProvider delay={300}>
+            <NuqsAdapter>
+              <I18nProvider>{children}</I18nProvider>
+            </NuqsAdapter>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

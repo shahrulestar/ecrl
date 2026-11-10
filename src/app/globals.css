@@ -61,9 +61,13 @@
   --color-map-land: var(--map-land);
   --color-map-route-region: var(--map-route-region);
   --color-map-route-region-stroke: var(--map-route-region-stroke);
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 :root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -223,9 +227,91 @@
   animation: route-draw 900ms ease-out 400ms both;
 }
 
+/* Slides up the first time a fare appears. Count changes do not remount it. */
+.peek-enter {
+  transition:
+    translate 300ms var(--ease-out-strong),
+    opacity 200ms;
+  @starting-style {
+    translate: 0 100%;
+    opacity: 0;
+  }
+}
+
+.reveal {
+  animation: reveal-in 280ms var(--ease-out-strong) both;
+}
+.reveal-2 {
+  animation-delay: 40ms;
+}
+.reveal-3 {
+  animation-delay: 80ms;
+}
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+.stage-swap {
+  animation: stage-in 200ms var(--ease-out-strong) both;
+}
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+.route-label-end,
+.route-label-hover {
+  transform-box: fill-box;
+}
+.route-label-end {
+  animation: label-in 200ms var(--ease-out-strong) 1100ms both;
+}
+.route-label-hover {
+  animation: label-in 120ms var(--ease-out-strong) both;
+}
+@keyframes label-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+@keyframes label-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .route-draw {
+  .route-draw,
+  .reveal,
+  .reveal-2,
+  .reveal-3,
+  .stage-swap,
+  .route-label-end,
+  .route-label-hover {
     animation: none;
+  }
+  .reveal,
+  .stage-swap,
+  .route-label-end,
+  .route-label-hover {
+    animation: label-fade 200ms both;
+    animation-delay: 0s;
+  }
+  .peek-enter {
+    transition-property: opacity;
+    @starting-style {
+      translate: none;
+      opacity: 0;
+    }
+  }
+  [data-slot="tabs-indicator"] {
+    transition: none;
   }
 }
 
@@ -238,6 +324,14 @@
   }
   html {
     @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a,
+  [role="button"],
+  [role="switch"],
+  [role="tab"] {
+    touch-action: manipulation;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
