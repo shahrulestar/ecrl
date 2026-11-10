@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -9,8 +11,10 @@ import {
   AlertCircleIcon,
   ArrowLeftRightIcon,
   ArrowUpDownIcon,
+  Link01Icon,
   MinusSignIcon,
   PlusSignIcon,
+  Tick02Icon,
   Train01Icon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +148,7 @@ function FareState({
   detail,
   tone = "neutral",
   action,
+  className,
 }: {
   icon: typeof Train01Icon;
   route: string;
@@ -151,11 +156,12 @@ function FareState({
   detail: string;
   tone?: "neutral" | "error";
   action?: React.ReactNode;
+  className?: string;
 }) {
   const { m } = useI18n();
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <Badge variant="outline" className="h-auto px-2.5 py-1 text-xs font-medium">{m.trip.eyebrow}</Badge>
       </CardHeader>
@@ -204,7 +210,7 @@ function OutputCard({
 
   if (!from || !to)
     return (
-      <Empty className="min-h-40 p-4">
+      <Empty className="stage-swap min-h-40 p-4">
         <EmptyHeader>
           <EmptyTitle>{from ? fill(m.trip.whereRouteFrom, { from }) : m.trip.whereRoute}</EmptyTitle>
           <EmptyDescription>{m.trip.whereDetail}</EmptyDescription>
@@ -215,6 +221,7 @@ function OutputCard({
   if (from === to)
     return (
       <FareState
+        className="stage-swap"
         icon={Alert02Icon}
         tone="error"
         route={from}
@@ -227,6 +234,7 @@ function OutputCard({
   if (fare == null)
     return (
       <FareState
+        className="stage-swap"
         icon={AlertCircleIcon}
         tone="error"
         route={routeOf(from, to)}
@@ -239,6 +247,7 @@ function OutputCard({
   if (people === 0)
     return (
       <FareState
+        className="stage-swap"
         icon={Alert02Icon}
         tone="error"
         route={routeOf(from, to)}
@@ -291,8 +300,8 @@ function OutputCard({
   }, 0);
 
   const renderCard = (className?: string, withCopy = false) => (
-    <Card className={className}>
-      <CardHeader>
+    <Card key={`${from}-${to}`} className={cn("stage-swap", className)}>
+      <CardHeader className="reveal">
         <div className="flex flex-col items-start gap-3">
           <CardTitle className="flex flex-col items-start gap-1">
             <AnimatedFarePrice amount={total} className="type-fare-hero" />
@@ -313,7 +322,7 @@ function OutputCard({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2 md:gap-3">
+        <div className="reveal reveal-2 flex flex-col gap-2 md:gap-3">
           <p className="text-base leading-relaxed font-medium">{routeOf(from, to)}</p>
           <p className="text-sm text-muted-foreground">
             {direction}
@@ -352,7 +361,7 @@ function OutputCard({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="reveal reveal-3 flex flex-col gap-5">
           <ol className="flex flex-col lg:scroll-fade lg:max-h-[min(24rem,45dvh)] lg:overflow-y-auto lg:pr-3 lg:pl-1 lg:[scrollbar-width:thin]">
             {path.map((stop, i) => {
               const previous = path[i - 1];
@@ -391,10 +400,11 @@ function OutputCard({
 
   return (
     <>
-      {renderCard("max-md:hidden", true)}
-      <Drawer open={fareOpen} onOpenChange={setFareOpen}>
+      {renderCard("max-lg:hidden", true)}
+      <Drawer showSwipeHandle open={fareOpen} onOpenChange={setFareOpen}>
         <DrawerTrigger
-          className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
+          data-fare-peek
+          className="peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] lg:hidden"
           aria-label={fill(m.trip.drawerAria, {
             total: formatRm(total),
             was: discounted ? fill(m.trip.was, { amount: formatRm(baseTotal) }) : "",
@@ -457,15 +467,34 @@ function FareActions() {
   );
 }
 
+const copySwap =
+  "transition-[opacity,scale,filter] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]";
+const copyIdleIcon =
+  "group-data-copied/copy:scale-50 group-data-copied/copy:opacity-0 group-data-copied/copy:blur-[2px]";
+const copyDoneIcon =
+  "scale-50 opacity-0 blur-[2px] group-data-copied/copy:scale-100 group-data-copied/copy:opacity-100 group-data-copied/copy:blur-none";
+const copyIdleLabel = "group-data-copied/copy:opacity-0 group-data-copied/copy:blur-[2px]";
+const copyDoneLabel =
+  "opacity-0 blur-[2px] group-data-copied/copy:opacity-100 group-data-copied/copy:blur-none";
+
 function CopyLinkButton() {
   const { m } = useI18n();
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(window.location.href);
+      if (resetTimer.current) clearTimeout(resetTimer.current);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      resetTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       window.prompt(m.trip.copyPrompt, window.location.href);
     }
@@ -475,10 +504,29 @@ function CopyLinkButton() {
     <Button
       type="button"
       variant="outline"
-      className="h-11 flex-1 text-sm"
+      data-copied={copied ? "" : undefined}
+      className="group/copy h-11 flex-1 gap-2 text-sm"
       onClick={copy}
     >
-      <span aria-live="polite">{copied ? m.trip.copied : m.trip.copy}</span>
+      <span aria-hidden="true" className="relative size-4 shrink-0">
+        <HugeiconsIcon
+          icon={Link01Icon}
+          strokeWidth={2}
+          className={cn("absolute inset-0 size-4", copySwap, copyIdleIcon)}
+        />
+        <HugeiconsIcon
+          icon={Tick02Icon}
+          strokeWidth={2}
+          className={cn("absolute inset-0 size-4", copySwap, copyDoneIcon)}
+        />
+      </span>
+      <span aria-hidden="true" className="grid justify-items-center">
+        <span className={cn("[grid-area:1/1]", copySwap, copyIdleLabel)}>{m.trip.copy}</span>
+        <span className={cn("[grid-area:1/1]", copySwap, copyDoneLabel)}>{m.trip.copied}</span>
+      </span>
+      <span className="sr-only" aria-live="polite">
+        {copied ? m.trip.copied : m.trip.copy}
+      </span>
     </Button>
   );
 }
@@ -489,6 +537,19 @@ export function TripTab() {
   const phase = usePromoPhase();
   const { from, to, party } = query;
   const isMalaysian = query.my;
+  const [swapped, setSwapped] = useState(false);
+
+  useEffect(() => {
+    const onSwap = () => setSwapped((current) => !current);
+    window.addEventListener("fare:swap", onSwap);
+    return () => window.removeEventListener("fare:swap", onSwap);
+  }, []);
+
+  function swapStations() {
+    setSwapped((current) => !current);
+    setFrom(to);
+    setTo(from);
+  }
 
   function setFrom(value: StationName | null) {
     setQuery({ from: value });
@@ -512,23 +573,36 @@ export function TripTab() {
         <CardContent className="flex flex-col gap-8">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
             <StationSelect id="from" label={m.trip.from} value={from} onChange={setFrom} />
-            <Button
-              variant="outline"
-              className="h-11 w-full gap-2 sm:w-11 sm:justify-self-center sm:px-0"
-              aria-label={m.trip.swap}
-              onClick={() => {
-                setFrom(to);
-                setTo(from);
-              }}
-            >
-              <HugeiconsIcon icon={ArrowUpDownIcon} strokeWidth={2} className="sm:hidden" />
-              <span className="sm:hidden">{m.trip.swap}</span>
-              <HugeiconsIcon
-                icon={ArrowLeftRightIcon}
-                strokeWidth={2}
-                className="hidden sm:block"
-              />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full gap-2 sm:w-11 sm:justify-self-center sm:px-0"
+                    aria-label={m.trip.swap}
+                    aria-keyshortcuts="S"
+                    onClick={swapStations}
+                  />
+                }
+              >
+                <HugeiconsIcon
+                  icon={ArrowUpDownIcon}
+                  strokeWidth={2}
+                  className="transition-[rotate] duration-200 ease-(--ease-out-strong) sm:hidden"
+                  style={{ rotate: swapped ? "180deg" : "0deg" }}
+                />
+                <span className="sm:hidden">{m.trip.swap}</span>
+                <HugeiconsIcon
+                  icon={ArrowLeftRightIcon}
+                  strokeWidth={2}
+                  className="hidden transition-[rotate] duration-200 ease-(--ease-out-strong) sm:block"
+                  style={{ rotate: swapped ? "180deg" : "0deg" }}
+                />
+              </TooltipTrigger>
+              <TooltipContent className="max-md:hidden">
+                {m.shell.shortcutSwap} <Kbd>S</Kbd>
+              </TooltipContent>
+            </Tooltip>
             <StationSelect id="to" label={m.trip.to} value={to} onChange={setTo} />
           </div>
 

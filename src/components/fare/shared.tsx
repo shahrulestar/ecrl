@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -11,12 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fill } from "@/i18n/fill";
 import { useI18n } from "@/i18n/provider";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { cn } from "@/lib/utils";
 import {
   formatAmount,
+  launchPromo,
   promoDateFrom,
   promoPhase,
   stations,
@@ -26,18 +29,24 @@ import {
 
 const STATES = ["Selangor", "Pahang", "Terengganu", "Kelantan"] as const;
 
-export function usePromoPhase(): PromoPhase | null {
-  const [promoDate, setPromoDate] = useState<string | null>(null);
+/** The phase on the day the site was built. It is what the static HTML shows. */
+const buildPhase = promoPhase(process.env.NEXT_PUBLIC_BUILD_DATE ?? launchPromo.start);
 
-  useEffect(() => {
-    const override =
-      process.env.NODE_ENV !== "production"
-        ? new URLSearchParams(window.location.search).get("today")
-        : null;
-    setPromoDate(promoDateFrom(new Date(), override));
-  }, []);
+function subscribeToNothing() {
+  return () => {};
+}
 
-  return promoDate ? promoPhase(promoDate) : null;
+function todayPhase(): PromoPhase {
+  const override =
+    process.env.NODE_ENV !== "production"
+      ? new URLSearchParams(window.location.search).get("today")
+      : null;
+  return promoPhase(promoDateFrom(new Date(), override));
+}
+
+/** Build-day phase in the static HTML, then today's phase once the page is live. */
+export function usePromoPhase(): PromoPhase {
+  return useSyncExternalStore(subscribeToNothing, todayPhase, () => buildPhase);
 }
 
 function isStation(value: unknown): value is StationName {
@@ -53,18 +62,24 @@ export function StationSelect({
   label,
   value,
   onChange,
-  fit = false,
 }: {
   id: string;
   label: string;
   value: StationName | null;
   onChange: (value: StationName) => void;
-  fit?: boolean;
 }) {
   const { m } = useI18n();
+  const searchable = id === "from" || id === "line-from";
+  const trigger = (
+    <SelectTrigger
+      id={id}
+      aria-keyshortcuts={searchable ? "/" : undefined}
+      className="min-h-11 w-full text-base sm:text-sm"
+    />
+  );
 
   return (
-    <div className={cn("flex flex-col gap-2", fit ? "w-fit max-w-full self-start" : "min-w-0")}>
+    <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
       <Select
         value={value}
@@ -72,15 +87,25 @@ export function StationSelect({
           if (isStation(next)) onChange(next);
         }}
       >
-        <SelectTrigger id={id} className={cn("min-h-11", fit ? "w-fit" : "w-full")}>
-          <SelectValue placeholder={m.shared.placeholder} />
-        </SelectTrigger>
+        {searchable ? (
+          <Tooltip>
+            <TooltipTrigger render={trigger}>
+              <SelectValue placeholder={m.shared.placeholder} />
+            </TooltipTrigger>
+            <TooltipContent className="max-md:hidden">
+              {m.shell.shortcutSearch} <Kbd>/</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <SelectTrigger id={id} className="min-h-11 w-full text-base sm:text-sm">
+            <SelectValue placeholder={m.shared.placeholder} />
+          </SelectTrigger>
+        )}
         <SelectContent
           side="bottom"
           align="start"
           alignItemWithTrigger={false}
-          className={cn("max-h-[min(18rem,var(--available-height))]", fit && "w-max")}
-          style={fit ? { width: "max-content", minWidth: "var(--anchor-width)" } : undefined}
+          className="max-h-[min(18rem,var(--available-height))]"
         >
           {STATES.map((state) => (
             <SelectGroup key={state}>
@@ -88,11 +113,7 @@ export function StationSelect({
               {stations
                 .filter((station) => station.state === state)
                 .map((station) => (
-                  <SelectItem
-                    key={station.name}
-                    value={station.name}
-                    className={cn("min-h-11 cursor-pointer", fit && "w-auto")}
-                  >
+                  <SelectItem key={station.name} value={station.name} className="min-h-11">
                     {code(station.index)} {station.name}
                   </SelectItem>
                 ))}

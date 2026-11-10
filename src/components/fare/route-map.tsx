@@ -51,7 +51,15 @@ interface Size {
  * the same frame. `unit` is one screen px in view-box units, which keeps the
  * label the same size at every zoom.
  */
-function StationLabel({ stop, unit }: { stop: LineStop; unit: number }) {
+function StationLabel({
+  stop,
+  unit,
+  delayed = false,
+}: {
+  stop: LineStop;
+  unit: number;
+  delayed?: boolean;
+}) {
   const [textWidth, setTextWidth] = useState(stop.name.length * 6.6);
   const height = 24 * unit;
   const width = (textWidth + 20) * unit;
@@ -61,8 +69,15 @@ function StationLabel({ stop, unit }: { stop: LineStop; unit: number }) {
   const y =
     stop.label === "n" ? -gap - height : stop.label === "s" ? gap : -height / 2;
 
+  const origin =
+    stop.label === "e" ? "left" : stop.label === "w" ? "right" : stop.label === "n" ? "bottom" : "top";
+
   return (
-    <g transform={`translate(${stop.x} ${stop.y})`} className="pointer-events-none">
+    <g
+      transform={`translate(${stop.x} ${stop.y})`}
+      className={delayed ? "route-label-end pointer-events-none" : "route-label-hover pointer-events-none"}
+      style={{ transformOrigin: origin }}
+    >
       <rect x={x} y={y} width={width} height={height} rx={6 * unit} className="fill-foreground" />
       <text
         ref={(node) => {
@@ -102,6 +117,8 @@ function RouteMap({
   const [hoveredStop, setHoveredStop] = useState<StationName | null>(null);
   const [pinnedStop, setPinnedStop] = useState<StationName | null>(null);
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPin = useRef<StationName | null>(null);
   const fromIndex = stationIndex(from);
   const toIndex = stationIndex(to);
   const fromT = ecrlRoute.at[fromIndex] * ecrlRoute.length;
@@ -131,6 +148,30 @@ function RouteMap({
   function togglePin(name: StationName) {
     setPinnedStop((current) => (current === name ? null : name));
   }
+
+  /** Wait out a second tap on the same station so a double-tap zooms instead of pinning. */
+  function armPin(name: StationName) {
+    if (pinTimer.current) {
+      clearTimeout(pinTimer.current);
+      pinTimer.current = null;
+      const sameStation = pendingPin.current === name;
+      pendingPin.current = null;
+      if (sameStation) return;
+    }
+    pendingPin.current = name;
+    pinTimer.current = setTimeout(() => {
+      pinTimer.current = null;
+      pendingPin.current = null;
+      togglePin(name);
+    }, 280);
+  }
+
+  useEffect(
+    () => () => {
+      if (pinTimer.current) clearTimeout(pinTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!frame) return;
@@ -251,7 +292,7 @@ function RouteMap({
                   className="cursor-pointer fill-transparent outline-none"
                   onPointerEnter={(event) => event.pointerType === "mouse" && setHoveredStop(stop.name)}
                   onPointerLeave={(event) => event.pointerType === "mouse" && setHoveredStop(null)}
-                  onClick={(event) => isTap(event) && togglePin(stop.name)}
+                  onClick={(event) => isTap(event) && armPin(stop.name)}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
                     event.preventDefault();
@@ -264,13 +305,17 @@ function RouteMap({
             </>
           )}
           {size.width > 0 &&
-            labelled.map((stop) => (
-              <StationLabel
-                key={stop.name}
-                stop={stop}
-                unit={1 / (labelScale * zoom.scale)}
-              />
-            ))}
+            labelled.map((stop) => {
+              const isEnd = stop.name === from || stop.name === to;
+              return (
+                <StationLabel
+                  key={labelEnds && isEnd ? `${stop.name}-${replay}` : stop.name}
+                  stop={stop}
+                  delayed={labelEnds && isEnd}
+                  unit={1 / (labelScale * zoom.scale)}
+                />
+              );
+            })}
         </Map>
       </div>
     </div>

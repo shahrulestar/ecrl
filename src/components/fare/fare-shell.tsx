@@ -8,7 +8,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Kbd } from "@/components/ui/kbd";
+import { Tabs, TabsIndicator, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Shortcuts } from "@/hooks/use-shortcuts";
 import { fill } from "@/i18n/fill";
 import { locales } from "@/i18n/locales";
 import { useI18n } from "@/i18n/provider";
@@ -35,6 +38,10 @@ function footnotesFor(m: Messages, phase: PromoPhase | null) {
   ];
 }
 
+/** `!` keeps the icon swap animated while next-themes switches every other transition off. */
+const themeIconSwap =
+  "absolute inset-0 size-4 transition-[opacity,scale,rotate,filter]! duration-200! ease-[cubic-bezier(0.23,1,0.32,1)]!";
+
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [ready, setReady] = useState(false);
@@ -44,45 +51,37 @@ function ThemeToggle() {
   const { m } = useI18n();
   const dark = ready && resolvedTheme === "dark";
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== "d" || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.repeat || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (
-        target?.closest(
-          "input, textarea, select, [contenteditable], [role=combobox], [role=listbox]",
-        )
-      )
-        return;
-      setTheme(resolvedTheme === "dark" ? "light" : "dark");
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [resolvedTheme, setTheme]);
-
   return (
-    <Button
-      variant="outline"
-      size="icon"
-      className="size-11"
-      aria-label={dark ? m.shell.themeToLight : m.shell.themeToDark}
-      aria-keyshortcuts="D"
-      onClick={() => setTheme(dark ? "light" : "dark")}
-    >
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-11 rounded-none border-y-0 border-r-0 bg-transparent shadow-none dark:bg-transparent"
+            aria-label={dark ? m.shell.themeToLight : m.shell.themeToDark}
+            aria-keyshortcuts="D"
+            onClick={() => setTheme(dark ? "light" : "dark")}
+          />
+        }
+      >
       <span className="relative size-4">
         <HugeiconsIcon
           icon={Sun01Icon}
           strokeWidth={2}
-          className="absolute inset-0 size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"
+          className={cn(themeIconSwap, "scale-100 rotate-0 opacity-100 dark:scale-50 dark:-rotate-90 dark:opacity-0 dark:blur-[2px]")}
         />
         <HugeiconsIcon
           icon={Moon01Icon}
           strokeWidth={2}
-          className="absolute inset-0 size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
+          className={cn(themeIconSwap, "scale-50 rotate-90 opacity-0 blur-[2px] dark:scale-100 dark:rotate-0 dark:opacity-100 dark:blur-none")}
         />
       </span>
-    </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-md:hidden">
+        {m.shell.shortcutTheme} <Kbd>D</Kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -128,7 +127,7 @@ function LanguageSwitch() {
   return (
     <nav
       aria-label={m.shell.langLabel}
-      className="flex h-11 shrink-0 items-center rounded-lg border p-1 text-xs font-medium"
+      className="flex h-11 items-center p-1 text-xs font-medium"
     >
       {locales.map((code) => {
         const active = code === locale;
@@ -156,6 +155,15 @@ function LanguageSwitch() {
   );
 }
 
+function HeaderControls() {
+  return (
+    <div className="flex h-11 shrink-0 items-stretch overflow-hidden rounded-lg border">
+      <LanguageSwitch />
+      <ThemeToggle />
+    </div>
+  );
+}
+
 function TabNav() {
   return <TabNavView params={useSearchParams()} />;
 }
@@ -167,13 +175,14 @@ function TabNavView({ params }: { params: URLSearchParams }) {
 
   return (
     <Tabs value={active}>
-      <TabsList className="grid w-full grid-cols-4 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
+      <TabsList className="relative grid w-full grid-cols-4 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
+        <TabsIndicator />
         {tabLinks.map((tab) => (
           <TabsTrigger
             key={tab.id}
             value={tab.id}
             nativeButton={false}
-            className="px-3"
+            className="relative z-10 px-1 text-[13px] data-active:bg-transparent max-[359px]:text-xs sm:px-3 sm:text-sm dark:data-active:border-transparent dark:data-active:bg-transparent"
             render={<Link href={tabHref(tab.id, params)} />}
           >
             {m.shell[tab.labelKey]}
@@ -189,14 +198,29 @@ export function FareShell({ children }: { children: React.ReactNode }) {
   const phase = usePromoPhase();
   const bare = usePathname().replace(/^\/ms(?=\/|$)/, "") === "/map";
 
-  if (bare) return children;
+  if (bare)
+    return (
+      <>
+        <Suspense fallback={null}>
+          <Shortcuts />
+        </Suspense>
+        {children}
+      </>
+    );
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 px-4 pt-6 pb-6 md:px-6 md:pb-10">
+    <div className="flex min-h-screen flex-col bg-background max-lg:has-[[data-fare-peek]]:pb-32">
+      <Suspense fallback={null}>
+        <Shortcuts />
+      </Suspense>
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-6 pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="type-page-title">{m.shell.title}</h1>
-          <p className="type-lead max-w-2xl">{m.shell.lead}</p>
+          <header className="flex items-center justify-between gap-3">
+            <h1 className="type-page-title min-w-0">{m.shell.title}</h1>
+            <div className="hidden shrink-0 lg:flex">
+              <HeaderControls />
+            </div>
+          </header>
         </div>
         <Suspense>
           <LegacyParamsRedirect />
@@ -206,10 +230,13 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         </Suspense>
         <div className="pt-0">{children}</div>
       </main>
-      <footer className="mt-auto max-md:pb-32">
-        <div className="mx-auto w-full max-w-page px-4 pb-6 md:px-6 md:pb-10">
+      <footer className="mt-auto">
+        <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
           <Card>
             <CardContent className="flex flex-col gap-6">
+              <div className="flex justify-end lg:hidden">
+                <HeaderControls />
+              </div>
               <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
                 {footnotesFor(m, phase).map((note) => (
                   <div key={note.key} className="flex flex-col gap-0.5">
@@ -218,34 +245,28 @@ export function FareShell({ children }: { children: React.ReactNode }) {
                   </div>
                 ))}
               </dl>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <p className="text-xs text-muted-foreground">
-                    {m.shell.learnMoreBefore}
-                    <a
-                      href="https://ecrl.com.my/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-foreground underline-offset-4 hover:underline"
-                    >
-                      {m.shell.learnMoreLink}
-                    </a>
-                    {m.shell.learnMoreAfter}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {m.shell.builtBy}{" "}
-                    <a
-                      href="https://shahrulestar.com"
-                      className="font-medium text-foreground underline-offset-4 hover:underline"
-                    >
-                      shahrulestar.com
-                    </a>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <LanguageSwitch />
-                  <ThemeToggle />
-                </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="text-xs text-muted-foreground">
+                  {m.shell.learnMoreBefore}
+                  <a
+                    href="https://ecrl.com.my/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    {m.shell.learnMoreLink}
+                  </a>
+                  {m.shell.learnMoreAfter}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {m.shell.builtBy}{" "}
+                  <a
+                    href="https://shahrulestar.com"
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    shahrulestar.com
+                  </a>
+                </p>
               </div>
             </CardContent>
           </Card>

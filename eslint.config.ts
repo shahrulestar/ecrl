@@ -11,6 +11,7 @@ export default tseslint.config(
       ".next/**",
       "out/**",
       ".vercel/**",
+      ".wrangler/**",
       "node_modules/**",
       ".agents/**",
       ".claude/**",

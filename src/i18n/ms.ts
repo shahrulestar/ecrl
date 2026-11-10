@@ -31,7 +31,6 @@ export const ms: Messages = {
   },
   shell: {
     title: "Kalkulator Tambang ECRL",
-    lead: "Semak kadar permulaan Transit Ekonomi antara mana-mana dua stesen, Gombak ke Kota Bharu. Harga sama dua hala.",
     tabTrip: "Perjalanan",
     tabStation: "Stesen",
     tabTable: "Jadual",
@@ -56,6 +55,9 @@ export const ms: Messages = {
     langLabel: "Bahasa",
     langEn: "English",
     langMs: "Bahasa Melayu",
+    shortcutTheme: "Tema",
+    shortcutSwap: "Tukar stesen",
+    shortcutSearch: "Cari stesen",
   },
   shared: {
     placeholder: "Pilih stesen",
@@ -89,7 +91,7 @@ export const ms: Messages = {
     passengersDetail: "Tambang dikira seorang demi seorang. Tambah sekurang-kurangnya seorang.",
     addAdult: "Tambah dewasa",
     eyebrow: "Transit Ekonomi",
-    badge: "Diskaun 30% · hingga {end}",
+    badge: "Diskaun 30% hingga {end}",
     route: "{from} ke {to}",
     east: "Ke timur",
     west: "Ke barat",

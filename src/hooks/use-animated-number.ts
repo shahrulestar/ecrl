@@ -6,8 +6,8 @@ function sen(amount: number) {
   return Math.round(amount * 100) / 100;
 }
 
-function easeOutQuart(t: number) {
-  return 1 - (1 - t) ** 4;
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
 }
 
 function prefersReducedMotion() {
@@ -44,7 +44,7 @@ export function useAnimatedNumber(target: number, durationMs = 900) {
 
     function tick(now: number) {
       const t = Math.min(1, (now - start) / durationMs);
-      const value = sen(from + (next - from) * easeOutQuart(t));
+      const value = sen(from + (next - from) * easeOutCubic(t));
       displayRef.current = value;
       setDisplay(value);
       if (t < 1) frame = requestAnimationFrame(tick);

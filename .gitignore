@@ -1,6 +1,8 @@
+.DS_Store
 node_modules/
 .next/
 .vercel/
+.wrangler/
 out/
 *.tsbuildinfo
 next-env.d.ts
