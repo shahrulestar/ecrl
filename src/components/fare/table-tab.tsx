@@ -52,12 +52,12 @@ export function TableTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="max-lg:has-data-[slot=card-action]:grid-cols-1">
         <CardTitle>{m.table.title}</CardTitle>
         <CardDescription>{m.table.description}</CardDescription>
         <CardAction
           aria-hidden="true"
-          className="w-80 truncate text-right text-sm font-medium tabular-nums max-lg:hidden"
+          className="text-sm font-medium tabular-nums max-lg:col-start-1 max-lg:row-span-1 max-lg:row-start-3 max-lg:w-full max-lg:justify-self-start max-lg:text-left lg:w-80 lg:truncate lg:text-right"
         >
           {activeFrom && activeTo && activeFare != null
             ? fill(m.table.cell, { from: activeFrom, to: activeTo, fare: formatRm(activeFare) })
@@ -101,7 +101,6 @@ export function TableTab() {
                 </TableHead>
                 {stations.map((destination, col) => {
                   const fare = getFare(origin.name, destination.name);
-                  const selected = origin.name === from && destination.name === to;
                   const onPath =
                     hover !== null &&
                     ((row === hover.row && col <= hover.col) ||
@@ -118,8 +117,8 @@ export function TableTab() {
                       ) : (
                         <Button
                           size="sm"
-                          variant={selected ? "default" : "ghost"}
-                          className="mx-auto flex size-9 px-0 lg:w-full lg:px-1"
+                          variant="ghost"
+                          className="mx-auto flex size-9 bg-transparent px-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent lg:w-full lg:px-1"
                           onClick={() => openPair(origin.name, destination.name)}
                           onPointerEnter={(event) => {
                             if (event.pointerType === "mouse") setHover({ row, col });

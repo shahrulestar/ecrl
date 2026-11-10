@@ -28,7 +28,6 @@ export const en = {
   },
   shell: {
     title: "ECRL Fare Calculator",
-    lead: "Check the Economy Transit starting fare between any two stations, Gombak to Kota Bharu. The price is the same both ways.",
     tabTrip: "Your Trip",
     tabStation: "By Station",
     tabTable: "Fare Table",
@@ -57,8 +56,7 @@ export const en = {
     shortcutSearch: "Station search",
   },
   shared: {
-    placeholder: "Type or pick a station",
-    noMatch: "No station matches",
+    placeholder: "Pick a station",
     promoBanner:
       "Malaysian citizens get 30% off from {start} to {end}. Prices below do not include the discount.",
   },
@@ -86,7 +84,7 @@ export const en = {
     passengersDetail: "Fares are worked out per passenger. Add at least one.",
     addAdult: "Add an adult",
     eyebrow: "Economy Transit",
-    badge: "30% off · until {end}",
+    badge: "30% off until {end}",
     route: "{from} to {to}",
     east: "Eastbound",
     west: "Westbound",

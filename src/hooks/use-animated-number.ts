@@ -6,15 +6,15 @@ function sen(amount: number) {
   return Math.round(amount * 100) / 100;
 }
 
-function easeOutQuart(t: number) {
-  return 1 - (1 - t) ** 4;
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
 }
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function useAnimatedNumber(target: number, durationMs = 350) {
+export function useAnimatedNumber(target: number, durationMs = 900) {
   const [display, setDisplay] = useState(() => sen(target));
   const displayRef = useRef(display);
   const first = useRef(true);
@@ -44,7 +44,7 @@ export function useAnimatedNumber(target: number, durationMs = 350) {
 
     function tick(now: number) {
       const t = Math.min(1, (now - start) / durationMs);
-      const value = sen(from + (next - from) * easeOutQuart(t));
+      const value = sen(from + (next - from) * easeOutCubic(t));
       displayRef.current = value;
       setDisplay(value);
       if (t < 1) frame = requestAnimationFrame(tick);

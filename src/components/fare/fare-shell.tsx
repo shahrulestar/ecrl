@@ -58,7 +58,7 @@ function ThemeToggle() {
           <Button
             variant="outline"
             size="icon"
-            className="size-11"
+            className="size-11 rounded-none border-y-0 border-r-0 bg-transparent shadow-none dark:bg-transparent"
             aria-label={dark ? m.shell.themeToLight : m.shell.themeToDark}
             aria-keyshortcuts="D"
             onClick={() => setTheme(dark ? "light" : "dark")}
@@ -127,7 +127,7 @@ function LanguageSwitch() {
   return (
     <nav
       aria-label={m.shell.langLabel}
-      className="flex h-11 shrink-0 items-center rounded-lg border p-1 text-xs font-medium"
+      className="flex h-11 items-center p-1 text-xs font-medium"
     >
       {locales.map((code) => {
         const active = code === locale;
@@ -152,6 +152,15 @@ function LanguageSwitch() {
         );
       })}
     </nav>
+  );
+}
+
+function HeaderControls() {
+  return (
+    <div className="flex h-11 shrink-0 items-stretch overflow-hidden rounded-lg border">
+      <LanguageSwitch />
+      <ThemeToggle />
+    </div>
   );
 }
 
@@ -208,12 +217,10 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-col gap-2">
           <header className="flex items-center justify-between gap-3">
             <h1 className="type-page-title min-w-0">{m.shell.title}</h1>
-            <div className="flex shrink-0 items-center gap-2">
-              <LanguageSwitch />
-              <ThemeToggle />
+            <div className="hidden shrink-0 lg:flex">
+              <HeaderControls />
             </div>
           </header>
-          <p className="type-lead max-w-2xl">{m.shell.lead}</p>
         </div>
         <Suspense>
           <LegacyParamsRedirect />
@@ -227,6 +234,9 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
           <Card>
             <CardContent className="flex flex-col gap-6">
+              <div className="flex justify-end lg:hidden">
+                <HeaderControls />
+              </div>
               <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
                 {footnotesFor(m, phase).map((note) => (
                   <div key={note.key} className="flex flex-col gap-0.5">

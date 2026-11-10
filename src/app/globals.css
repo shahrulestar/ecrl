@@ -175,9 +175,6 @@
 @utility type-page-title {
   @apply text-xl font-semibold tracking-tight text-balance sm:text-2xl;
 }
-@utility type-lead {
-  @apply text-sm leading-relaxed text-muted-foreground sm:text-base;
-}
 @utility type-eyebrow {
   @apply text-xs font-medium tracking-wide text-muted-foreground uppercase;
 }

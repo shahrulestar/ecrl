@@ -118,6 +118,7 @@ function RouteMap({
   const [pinnedStop, setPinnedStop] = useState<StationName | null>(null);
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPin = useRef<StationName | null>(null);
   const fromIndex = stationIndex(from);
   const toIndex = stationIndex(to);
   const fromT = ecrlRoute.at[fromIndex] * ecrlRoute.length;
@@ -148,15 +149,19 @@ function RouteMap({
     setPinnedStop((current) => (current === name ? null : name));
   }
 
-  /** Wait out a second tap so a double-tap zooms instead of pinning. */
+  /** Wait out a second tap on the same station so a double-tap zooms instead of pinning. */
   function armPin(name: StationName) {
     if (pinTimer.current) {
       clearTimeout(pinTimer.current);
       pinTimer.current = null;
-      return;
+      const sameStation = pendingPin.current === name;
+      pendingPin.current = null;
+      if (sameStation) return;
     }
+    pendingPin.current = name;
     pinTimer.current = setTimeout(() => {
       pinTimer.current = null;
+      pendingPin.current = null;
       togglePin(name);
     }, 280);
   }

@@ -53,10 +53,10 @@ export function Shortcuts() {
       }
 
       if (event.key === "/") {
-        const input = document.querySelector<HTMLInputElement>("#from, #line-from");
-        if (!input) return;
+        const picker = document.querySelector<HTMLElement>("#from, #line-from");
+        if (!picker) return;
         event.preventDefault();
-        input.focus();
+        picker.focus();
       }
     }
 
