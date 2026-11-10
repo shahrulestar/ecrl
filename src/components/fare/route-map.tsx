@@ -5,7 +5,7 @@ import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Map } from "@/components/shadcnmaps/map";
 import { useMapContext } from "@/components/shadcnmaps/map-context";
 import { MapControls } from "@/components/shadcnmaps/map-controls";
@@ -52,8 +52,9 @@ interface Size {
  * label the same size at every zoom.
  */
 function StationLabel({ stop, unit }: { stop: LineStop; unit: number }) {
+  const [textWidth, setTextWidth] = useState(stop.name.length * 6.6);
   const height = 24 * unit;
-  const width = (stop.name.length * 6.6 + 20) * unit;
+  const width = (textWidth + 20) * unit;
   const gap = 10 * unit;
   const x =
     stop.label === "e" ? gap : stop.label === "w" ? -gap - width : -width / 2;
@@ -64,11 +65,14 @@ function StationLabel({ stop, unit }: { stop: LineStop; unit: number }) {
     <g transform={`translate(${stop.x} ${stop.y})`} className="pointer-events-none">
       <rect x={x} y={y} width={width} height={height} rx={6 * unit} className="fill-foreground" />
       <text
+        ref={(node) => {
+          if (node) setTextWidth(Math.round(node.getComputedTextLength() / unit));
+        }}
         x={x + width / 2}
         y={y + height / 2}
+        dy="0.36em"
         fontSize={12 * unit}
         textAnchor="middle"
-        dominantBaseline="central"
         className="fill-background font-medium"
       >
         {stop.name}
@@ -169,7 +173,7 @@ function RouteMap({
                 position="bottom-right"
                 showPanButtons={false}
                 onReset={() => setReplay((count) => count + 1)}
-                className="right-auto bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 flex-row rounded-lg border bg-background/90 p-1 shadow-md backdrop-blur sm:right-3 sm:bottom-3 sm:left-auto sm:translate-x-0 sm:flex-col"
+                className="right-auto bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 -translate-x-1/2 flex-row rounded-lg border bg-background/90 p-1 shadow-md backdrop-blur sm:right-[calc(env(safe-area-inset-right)+0.75rem)] sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:left-auto sm:translate-x-0 sm:flex-col"
               />
             ) : undefined
           }
@@ -289,7 +293,6 @@ function useRouteCopy(from: StationName, to: StationName) {
     route: fill(m.trip.route, { from, to }),
     detail,
     label: fill(m.trip.mapAria, { from, to, detail }),
-    legend: m.trip.mapLegend,
     legendStation: m.trip.legendStation,
     legendTrip: m.trip.legendTrip,
     viewMap: m.trip.viewMap,
@@ -297,12 +300,10 @@ function useRouteCopy(from: StationName, to: StationName) {
 }
 
 export function RouteLegend({
-  legend,
   station,
   trip,
   className,
 }: {
-  legend: string;
   station: string;
   trip: string;
   className?: string;
@@ -316,7 +317,6 @@ export function RouteLegend({
       )}
     >
       <CardContent className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
-        <CardTitle className="text-sm">{legend}</CardTitle>
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="size-2.5 shrink-0 rounded-full border-2 border-foreground/70 bg-background" />
           {station}
@@ -341,11 +341,11 @@ export function LineMap() {
   const query = fareStateQuery(state);
 
   return (
-    <main className="relative h-dvh overflow-hidden">
+    <main className="fixed inset-0 overflow-hidden">
       <RouteMap from={from} to={to} label={copy.label} interactive labelEnds={hasTrip} />
       <Button
         variant="outline"
-        className="absolute top-3 left-3 z-10 h-9 bg-background hover:bg-background dark:bg-background dark:hover:bg-background shadow-sm sm:top-4 sm:left-4"
+        className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-[calc(env(safe-area-inset-left)+0.75rem)] z-10 h-9 bg-background hover:bg-background dark:bg-background dark:hover:bg-background shadow-sm sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:left-[calc(env(safe-area-inset-left)+1rem)]"
         render={<Link href={`/trip${query ? `?${query}` : ""}`} />}
         nativeButton={false}
       >
@@ -353,10 +353,9 @@ export function LineMap() {
         {m.shell.tabTrip}
       </Button>
       <RouteLegend
-        legend={copy.legend}
         station={copy.legendStation}
         trip={copy.legendTrip}
-        className="absolute top-3 right-3 z-10 shadow-sm sm:top-4 sm:right-4"
+        className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[calc(env(safe-area-inset-right)+0.75rem)] z-10 shadow-sm sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:right-[calc(env(safe-area-inset-right)+1rem)]"
       />
     </main>
   );
