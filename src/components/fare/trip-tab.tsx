@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowUp01Icon,
-  Copy01Icon,
-  Tick02Icon,
   AlertCircleIcon,
   ArrowLeftRightIcon,
   ArrowUpDownIcon,
@@ -35,11 +34,10 @@ import {
   pathBetween,
   publishedJourney,
   stationIndex,
-  stations,
   type PromoPhase,
   type StationName,
 } from "@/data/fares";
-import { PARTY_MAX, type Party } from "@/lib/fare-search";
+import { fareStateQuery, PARTY_MAX, type Party } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 
@@ -51,44 +49,6 @@ const partyRates = [
 
 function sen(amount: number) {
   return Math.round(amount * 100) / 100;
-}
-
-function LineDots({ from, to }: { from: StationName; to: StationName }) {
-  const a = stationIndex(from);
-  const b = stationIndex(to);
-  const lo = Math.min(a, b);
-  const hi = Math.max(a, b);
-
-  return (
-    <ol className="flex w-full items-center" aria-hidden="true">
-      {stations.map((station, i) => {
-        const on = i >= lo && i <= hi;
-        const end = i === a || i === b;
-        const last = i === stations.length - 1;
-        return (
-          <li
-            key={station.name}
-            className={cn("flex items-center", last ? "shrink-0" : "min-w-0 flex-1")}
-          >
-            <span
-              className={cn(
-                "size-2 shrink-0 rounded-full",
-                end ? "size-2.5 bg-primary" : on ? "bg-primary" : "bg-border",
-              )}
-            />
-            {last ? null : (
-              <span
-                className={cn(
-                  "h-px min-w-0 flex-1",
-                  i >= lo && i < hi ? "bg-primary" : "bg-border",
-                )}
-              />
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
 }
 
 function PartyCount({
@@ -197,7 +157,7 @@ function FareState({
   return (
     <Card>
       <CardHeader>
-        <CardDescription className="type-eyebrow">{m.trip.eyebrow}</CardDescription>
+        <Badge variant="outline" className="h-auto px-2.5 py-1 text-xs font-medium">{m.trip.eyebrow}</Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
@@ -238,6 +198,7 @@ function OutputCard({
   phase: PromoPhase | null;
 }) {
   const { locale, m } = useI18n();
+  const [fareOpen, setFareOpen] = useState(false);
   const routeOf = (origin: string, destination: string) =>
     fill(m.trip.route, { from: origin, to: destination });
 
@@ -332,9 +293,8 @@ function OutputCard({
   const renderCard = (className?: string, withCopy = false) => (
     <Card className={className}>
       <CardHeader>
-        <CardDescription className="type-eyebrow">{m.trip.eyebrow}</CardDescription>
         <div className="flex flex-col items-start gap-3">
-          <CardTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <CardTitle className="flex flex-col items-start gap-1">
             <AnimatedFarePrice amount={total} className="type-fare-hero" />
             {discounted ? (
               <span className="text-xl font-normal tracking-normal text-muted-foreground tabular-nums line-through">
@@ -342,11 +302,14 @@ function OutputCard({
               </span>
             ) : null}
           </CardTitle>
-          {discounted ? (
-            <Badge variant="secondary" className="h-auto px-2.5 py-1 text-xs font-medium">
-              {fill(m.trip.badge, { end: m.promo.end })}
-            </Badge>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="h-auto px-2.5 py-1 text-xs font-medium">{m.trip.eyebrow}</Badge>
+            {discounted ? (
+              <Badge className="h-auto px-2.5 py-1 text-xs font-medium">
+                {fill(m.trip.badge, { end: m.promo.end })}
+              </Badge>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
@@ -390,7 +353,6 @@ function OutputCard({
           ) : null}
         </div>
         <div className="flex flex-col gap-5">
-          <LineDots from={from} to={to} />
           <ol className="flex flex-col lg:scroll-fade lg:max-h-[min(24rem,45dvh)] lg:overflow-y-auto lg:pr-3 lg:pl-1 lg:[scrollbar-width:thin]">
             {path.map((stop, i) => {
               const previous = path[i - 1];
@@ -422,11 +384,7 @@ function OutputCard({
             </p>
           ) : null}
         </div>
-        {withCopy ? (
-          <div className="max-md:hidden">
-            <CopyLinkButton />
-          </div>
-        ) : null}
+        {withCopy ? <FareActions /> : null}
       </CardContent>
     </Card>
   );
@@ -434,7 +392,7 @@ function OutputCard({
   return (
     <>
       {renderCard("max-md:hidden", true)}
-      <Drawer>
+      <Drawer open={fareOpen} onOpenChange={setFareOpen}>
         <DrawerTrigger
           className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] md:hidden"
           aria-label={fill(m.trip.drawerAria, {
@@ -472,11 +430,30 @@ function OutputCard({
             {renderCard("border-0 ring-0")}
           </div>
           <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <CopyLinkButton />
+            <FareActions />
           </div>
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+function FareActions() {
+  const { m } = useI18n();
+  const [state] = useFareState();
+  const query = fareStateQuery(state);
+
+  return (
+    <div className="flex gap-2">
+      <Button
+        className="h-11 flex-1"
+        nativeButton={false}
+        render={<Link href={`/map${query ? `?${query}` : ""}`} />}
+      >
+        {m.trip.viewMap}
+      </Button>
+      <CopyLinkButton />
+    </div>
   );
 }
 
@@ -497,14 +474,10 @@ function CopyLinkButton() {
   return (
     <Button
       type="button"
-      className="h-11 w-full text-sm [&_svg:not([class*='size-'])]:size-4"
+      variant="outline"
+      className="h-11 flex-1 text-sm"
       onClick={copy}
     >
-      <HugeiconsIcon
-        icon={copied ? Tick02Icon : Copy01Icon}
-        strokeWidth={2}
-        data-icon="inline-start"
-      />
       <span aria-live="polite">{copied ? m.trip.copied : m.trip.copy}</span>
     </Button>
   );

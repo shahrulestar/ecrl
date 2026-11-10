@@ -10,11 +10,31 @@ From 12 Dec 2026 through 11 Jan 2027, Malaysian citizens get 30% off the startin
 
 Change the stations or party size and the link in your browser updates. Share that URL to open the same trip again.
 
+## Views
+
+The app is split into four short URLs. The tab bar keeps your station pick in the query string as you move between them.
+
+| Path | What it does |
+| --- | --- |
+| [`/trip`](https://ecrl.shahrulestar.com/trip) | Pick two stations, set passengers, and see the starting fare. Open **View Map** to see that pair on the line map. |
+| [`/station`](https://ecrl.shahrulestar.com/station) | Choose one station and browse fares to every other stop in line order. |
+| [`/table`](https://ecrl.shahrulestar.com/table) | Full 16×16 Economy Transit starting-fare matrix. |
+| [`/map`](https://ecrl.shahrulestar.com/map) | Zoomable route map of the peninsula with all 16 stops. A trip from **Your Trip** is highlighted when you land here with the same link. |
+
 ## Hosting
 
-The live site is at **[ecrl.shahrulestar.com](https://ecrl.shahrulestar.com/trip)**. English is the default. Pages are `/trip`, `/station` and `/table`. The language choice is saved in a cookie on the device, and `functions/_middleware.ts` serves the prebuilt Malay HTML (`/ms/...`) at the same URL, so there is no flash. `/ms/...` also works directly and carries `hreflang` links. It is built as a static Next.js app and served on **Cloudflare Pages** from this repository.
+The live site is at **[ecrl.shahrulestar.com](https://ecrl.shahrulestar.com/trip)**. English is the default. Pages are `/trip`, `/station`, `/table`, and `/map`. The language choice is saved in a cookie on the device, and `functions/_middleware.ts` serves the prebuilt Malay HTML (`/ms/...`) at the same URL, so there is no flash. `/ms/...` also works directly and carries `hreflang` links. It is built as a static Next.js app and served on **Cloudflare Pages** from this repository.
 
 Set `NEXT_PUBLIC_SITE_URL=https://ecrl.shahrulestar.com` in the Pages environment if you need to override the built-in default.
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+`npm run build` produces the static export for Pages. Use `npm run typecheck` and `npm run lint` before you ship changes.
 
 ## Disclaimer
 
@@ -22,4 +42,5 @@ This project is unofficial. It is not affiliated with ECRL, its operators, or an
 
 ## Data
 
-Station list and starting fares live in `src/data/fares.ts`, with notes on dynamic pricing and return journeys.
+- `src/data/fares.ts` — station list and starting fares, with notes on dynamic pricing and return journeys.
+- `src/data/ecrl-line.ts` — schematic line geometry and stop positions for the map.

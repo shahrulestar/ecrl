@@ -34,6 +34,8 @@ function pageCopy(m: Messages, rawPathname: string) {
     return { title: m.meta.stationTitle, description: m.meta.stationDescription };
   if (pathname.startsWith("/table"))
     return { title: m.meta.tableTitle, description: m.meta.tableDescription };
+  if (pathname.startsWith("/map"))
+    return { title: m.meta.mapTitle, description: m.meta.mapDescription };
   return { title: m.meta.tripTitle, description: m.meta.tripDescription };
 }
 

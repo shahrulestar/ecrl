@@ -90,6 +90,7 @@ const tabLinks = [
   { id: "trip", labelKey: "tabTrip" },
   { id: "station", labelKey: "tabStation" },
   { id: "table", labelKey: "tabTable" },
+  { id: "map", labelKey: "tabMap" },
 ] as const;
 
 /** Carry the `q` code between tabs so switching does not lose the pick. */
@@ -166,7 +167,7 @@ function TabNavView({ params }: { params: URLSearchParams }) {
 
   return (
     <Tabs value={active}>
-      <TabsList className="grid w-full grid-cols-3 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
+      <TabsList className="grid w-full grid-cols-4 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
         {tabLinks.map((tab) => (
           <TabsTrigger
             key={tab.id}
@@ -186,6 +187,9 @@ function TabNavView({ params }: { params: URLSearchParams }) {
 export function FareShell({ children }: { children: React.ReactNode }) {
   const { m } = useI18n();
   const phase = usePromoPhase();
+  const bare = usePathname().replace(/^\/ms(?=\/|$)/, "") === "/map";
+
+  if (bare) return children;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

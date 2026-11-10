@@ -7,6 +7,7 @@ const pages = [
   { path: "/trip", priority: 1 },
   { path: "/station", priority: 0.7 },
   { path: "/table", priority: 0.7 },
+  { path: "/map", priority: 0.5 },
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {

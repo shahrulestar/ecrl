@@ -9,7 +9,7 @@ interface Context {
   next: () => Promise<Response>;
 }
 
-const pages = new Set(["/trip", "/station", "/table"]);
+const pages = new Set(["/trip", "/station", "/table", "/map"]);
 const malayCookie = /(?:^|;\s*)ecrl-locale=ms(?:;|$)/;
 
 export async function onRequest({ request, env, next }: Context): Promise<Response> {

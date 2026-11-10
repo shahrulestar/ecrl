@@ -3,7 +3,7 @@ import cover from "@/app/ecrl-cover.png";
 import { htmlLang, LOCALE_META, type Locale } from "./locales";
 import { getMessages } from "./messages";
 
-export type FarePage = "trip" | "station" | "table";
+export type FarePage = "trip" | "station" | "table" | "map";
 
 const pathFor = (page: FarePage, locale: Locale) => (locale === "ms" ? `/ms/${page}` : `/${page}`);
 
@@ -14,7 +14,9 @@ export function pageMetadata(page: FarePage, locale: Locale = "en"): Metadata {
       ? { title: m.stationTitle, description: m.stationDescription }
       : page === "table"
         ? { title: m.tableTitle, description: m.tableDescription }
-        : { title: m.tripTitle, description: m.tripDescription };
+        : page === "map"
+          ? { title: m.mapTitle, description: m.mapDescription }
+          : { title: m.tripTitle, description: m.tripDescription };
   const url = pathFor(page, locale);
   return {
     title: { absolute: copy.title },
