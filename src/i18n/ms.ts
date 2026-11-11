@@ -106,6 +106,7 @@ export const ms: Messages = {
       "Jumlah tambang antara setiap stesen ialah {hop}, tetapi tambang yang diumumkan untuk keseluruhan perjalanan ialah {fare}.",
     startingFare: "Kadar permulaan",
     viewBreakdown: "Lihat pecahan penuh",
+    viewBreakdownAction: "Lihat Pecahan Penuh",
     breakdownTitle: "Pecahan tambang",
     passengers: "Penumpang",
     copy: "Salin Pautan",

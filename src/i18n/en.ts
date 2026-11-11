@@ -99,6 +99,7 @@ export const en = {
       "The stop-by-stop fares add up to {hop}, but the published fare for the whole trip is {fare}.",
     startingFare: "Starting fare",
     viewBreakdown: "View full breakdown",
+    viewBreakdownAction: "View Full Breakdown",
     breakdownTitle: "Fare breakdown",
     passengers: "Passengers",
     copy: "Copy Link",
