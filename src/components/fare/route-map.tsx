@@ -6,7 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Map } from "@/components/shadcnmaps/map";
+import { MAP_DOUBLE_TAP_MS, Map } from "@/components/shadcnmaps/map";
 import { useMapContext } from "@/components/shadcnmaps/map-context";
 import { MapControls } from "@/components/shadcnmaps/map-controls";
 import type { ZoomState } from "@/components/shadcnmaps/types";
@@ -149,7 +149,7 @@ function RouteMap({
     setPinnedStop((current) => (current === name ? null : name));
   }
 
-  /** Wait out a second tap on the same station so a double-tap zooms instead of pinning. */
+  /** Wait past the map's double-tap window. Click lands after touchend, so the extra 50ms keeps the pin pending until that click can cancel it. */
   function armPin(name: StationName) {
     if (pinTimer.current) {
       clearTimeout(pinTimer.current);
@@ -163,7 +163,7 @@ function RouteMap({
       pinTimer.current = null;
       pendingPin.current = null;
       togglePin(name);
-    }, 280);
+    }, MAP_DOUBLE_TAP_MS + 50);
   }
 
   useEffect(

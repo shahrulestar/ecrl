@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import {
@@ -134,17 +134,13 @@ export function FarePrice({ amount, className }: { amount: number; className?: s
 }
 
 export function AnimatedFarePrice({ amount, className }: { amount: number; className?: string }) {
-  const [generation, setGeneration] = useState(0);
-  const seen = useRef(amount);
-
-  useEffect(() => {
-    if (seen.current === amount) return;
-    seen.current = amount;
-    setGeneration((current) => current + 1);
-  }, [amount]);
+  const [frame, setFrame] = useState({ amount, generation: 0 });
+  if (frame.amount !== amount) {
+    setFrame({ amount, generation: frame.generation + 1 });
+  }
 
   return (
-    <span key={generation} className={cn("inline-flex", generation > 0 && "reveal")}>
+    <span key={frame.generation} className={cn("inline-flex", frame.generation > 0 && "reveal")}>
       <FarePrice amount={amount} className={className} />
     </span>
   );
