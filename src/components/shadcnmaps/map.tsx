@@ -27,6 +27,9 @@ import type {
   ZoomConfig,
 } from './types'
 
+/** A second touch inside this window, and close to the first, zooms instead of pinning. */
+export const MAP_DOUBLE_TAP_MS = 300
+
 export interface MapProps {
   data: MapData
   selectedRegion?: string | null
@@ -501,7 +504,7 @@ function MapInner({
       const prev = lastTouchTapRef.current
       if (
         prev &&
-        now - prev.t < 300 &&
+        now - prev.t < MAP_DOUBLE_TAP_MS &&
         Math.hypot(touch.clientX - prev.x, touch.clientY - prev.y) < 24
       ) {
         lastTouchTapRef.current = null

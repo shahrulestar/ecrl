@@ -43,7 +43,9 @@ export function StationTab() {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <PromoBanner phase={phase} />
-        <StationSelect id="line-from" label={m.station.from} value={from} onChange={setFrom} />
+        <div className="lg:max-w-sm">
+          <StationSelect id="line-from" label={m.station.from} value={from} onChange={setFrom} />
+        </div>
         {from == null ? (
           <Empty className="border-0 px-2 py-8">
             <EmptyHeader>

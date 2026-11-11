@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,7 +15,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fill } from "@/i18n/fill";
 import { useI18n } from "@/i18n/provider";
-import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { cn } from "@/lib/utils";
 import {
   formatAmount,
@@ -74,7 +73,7 @@ export function StationSelect({
     <SelectTrigger
       id={id}
       aria-keyshortcuts={searchable ? "/" : undefined}
-      className="min-h-11 w-full text-base sm:text-sm"
+      className="min-h-11 w-full text-sm"
     />
   );
 
@@ -97,7 +96,7 @@ export function StationSelect({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <SelectTrigger id={id} className="min-h-11 w-full text-base sm:text-sm">
+          <SelectTrigger id={id} className="min-h-11 w-full text-sm">
             <SelectValue placeholder={m.shared.placeholder} />
           </SelectTrigger>
         )}
@@ -135,8 +134,16 @@ export function FarePrice({ amount, className }: { amount: number; className?: s
 }
 
 export function AnimatedFarePrice({ amount, className }: { amount: number; className?: string }) {
-  const value = useAnimatedNumber(amount);
-  return <FarePrice amount={value} className={className} />;
+  const [frame, setFrame] = useState({ amount, generation: 0 });
+  if (frame.amount !== amount) {
+    setFrame({ amount, generation: frame.generation + 1 });
+  }
+
+  return (
+    <span key={frame.generation} className={cn("inline-flex", frame.generation > 0 && "reveal")}>
+      <FarePrice amount={amount} className={className} />
+    </span>
+  );
 }
 
 export function PromoBanner({ phase }: { phase: PromoPhase | null }) {
