@@ -541,7 +541,7 @@ function PartyDrawer({
             onChange={onChange}
           />
           <Button className="h-11 w-full" render={<DrawerClose />} onClick={onViewFare}>
-            {m.trip.viewBreakdown}
+            {m.trip.viewBreakdownAction}
           </Button>
         </div>
       </DrawerContent>

@@ -215,11 +215,8 @@ export function FareShell({ children }: { children: React.ReactNode }) {
       </Suspense>
       <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-6 pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] max-lg:min-h-dvh md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
         <div className="flex min-w-0 flex-col gap-2">
-          <header className="flex items-center justify-between gap-3">
+          <header>
             <h1 className="type-page-title min-w-0">{m.shell.title}</h1>
-            <div className="hidden shrink-0 lg:flex">
-              <HeaderControls />
-            </div>
           </header>
         </div>
         <Suspense>
@@ -234,9 +231,6 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
           <Card>
             <CardContent className="flex flex-col gap-6">
-              <div className="flex justify-end lg:hidden">
-                <HeaderControls />
-              </div>
               <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
                 {footnotesFor(m, phase).map((note) => (
                   <div key={note.key} className="flex flex-col gap-0.5">
@@ -245,28 +239,31 @@ export function FareShell({ children }: { children: React.ReactNode }) {
                   </div>
                 ))}
               </dl>
-              <div className="flex min-w-0 flex-col gap-1">
-                <p className="text-xs text-muted-foreground">
-                  {m.shell.learnMoreBefore}
-                  <a
-                    href="https://ecrl.com.my/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-foreground underline-offset-4 hover:underline"
-                  >
-                    {m.shell.learnMoreLink}
-                  </a>
-                  {m.shell.learnMoreAfter}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {m.shell.builtBy}{" "}
-                  <a
-                    href="https://shahrulestar.com"
-                    className="font-medium text-foreground underline-offset-4 hover:underline"
-                  >
-                    shahrulestar.com
-                  </a>
-                </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex flex-col gap-1">
+                  <p className="text-xs text-muted-foreground">
+                    {m.shell.learnMoreBefore}
+                    <a
+                      href="https://ecrl.com.my/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      {m.shell.learnMoreLink}
+                    </a>
+                    {m.shell.learnMoreAfter}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.shell.builtBy}{" "}
+                    <a
+                      href="https://shahrulestar.com"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      shahrulestar.com
+                    </a>
+                  </p>
+                </div>
+                <HeaderControls />
               </div>
             </CardContent>
           </Card>
