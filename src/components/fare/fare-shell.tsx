@@ -213,7 +213,7 @@ export function FareShell({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <Shortcuts />
       </Suspense>
-      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-6 pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-6 pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] max-lg:min-h-dvh md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
         <div className="flex min-w-0 flex-col gap-2">
           <header className="flex items-center justify-between gap-3">
             <h1 className="type-page-title min-w-0">{m.shell.title}</h1>
@@ -230,7 +230,7 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         </Suspense>
         <div className="pt-0">{children}</div>
       </main>
-      <footer className="mt-auto">
+      <footer className="mt-auto max-lg:mt-0">
         <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
           <Card>
             <CardContent className="flex flex-col gap-6">

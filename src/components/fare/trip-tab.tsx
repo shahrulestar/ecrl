@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -44,6 +45,7 @@ import {
 import { fareStateQuery, PARTY_MAX, type Party } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
+import { RouteLabel } from "@/components/fare/state-flag";
 
 const partyRates = [
   { key: "adults", off: 0 },
@@ -97,6 +99,40 @@ function PartyCount({
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
         </Button>
       </div>
+    </div>
+  );
+}
+
+function PartyFields({
+  party,
+  phase,
+  isMalaysian,
+  onChange,
+  className,
+}: {
+  party: Party;
+  phase: PromoPhase | null;
+  isMalaysian: boolean;
+  onChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
+  className?: string;
+}) {
+  const { m } = useI18n();
+
+  return (
+    <div className={cn("grid gap-3", className)}>
+      {partyRates.map((rate) => (
+        <PartyCount
+          key={rate.key}
+          label={m.party[rate.key].label}
+          hint={
+            rate.key === "adults" && (phase === "before" || phase === "active") && isMalaysian
+              ? m.party.adults.launchHint
+              : m.party[rate.key].hint
+          }
+          value={party[rate.key]}
+          onChange={(next) => onChange(rate.key, next)}
+        />
+      ))}
     </div>
   );
 }
@@ -195,8 +231,12 @@ function OutputCard({
   isMalaysian,
   phase,
   onAddAdult,
+  onPartyChange,
+  showFare = 0,
 }: {
   onAddAdult?: () => void;
+  onPartyChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
+  showFare?: number;
   from: StationName | null;
   to: StationName | null;
   party: Party;
@@ -207,6 +247,10 @@ function OutputCard({
   const [fareOpen, setFareOpen] = useState(false);
   const routeOf = (origin: string, destination: string) =>
     fill(m.trip.route, { from: origin, to: destination });
+
+  useEffect(() => {
+    if (showFare > 0) setFareOpen(true);
+  }, [showFare]);
 
   if (!from || !to)
     return (
@@ -323,7 +367,9 @@ function OutputCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
         <div className="reveal reveal-2 flex flex-col gap-2 md:gap-3">
-          <p className="text-base leading-relaxed font-medium">{routeOf(from, to)}</p>
+          <p className="text-base leading-relaxed font-medium">
+            <RouteLabel from={from} to={to} />
+          </p>
           <p className="text-sm text-muted-foreground">
             {direction}
             {between === 0
@@ -439,12 +485,67 @@ function OutputCard({
           <div className="scroll-fade max-h-[70dvh] overflow-y-auto px-2 pb-4">
             {renderCard("border-0 ring-0")}
           </div>
-          <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex flex-col gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <PartyDrawer
+              party={party}
+              phase={phase}
+              isMalaysian={isMalaysian}
+              onChange={onPartyChange}
+              onViewFare={() => setFareOpen(true)}
+            />
             <FareActions />
           </div>
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+function PartyDrawer({
+  party,
+  phase,
+  isMalaysian,
+  onChange,
+  onViewFare,
+}: {
+  party: Party;
+  phase: PromoPhase | null;
+  isMalaysian: boolean;
+  onChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
+  onViewFare?: () => void;
+}) {
+  const { m } = useI18n();
+  const summary = partyRates
+    .filter((rate) => party[rate.key] > 0)
+    .map((rate) => `${m.party[rate.key].label} × ${party[rate.key]}`)
+    .join(" · ");
+
+  return (
+    <Drawer showSwipeHandle>
+      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-background px-3 text-left text-sm">
+        <span className="shrink-0 font-medium">{m.trip.passengers}</span>
+        <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+          <span className="truncate">{summary || m.trip.passengersTitle}</span>
+          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
+        </span>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>{m.trip.passengers}</DrawerTitle>
+        </DrawerHeader>
+        <div className="flex flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <PartyFields
+            party={party}
+            phase={phase}
+            isMalaysian={isMalaysian}
+            onChange={onChange}
+          />
+          <Button className="h-11 w-full" render={<DrawerClose />} onClick={onViewFare}>
+            {m.trip.viewBreakdown}
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -538,6 +639,7 @@ export function TripTab() {
   const { from, to, party } = query;
   const isMalaysian = query.my;
   const [swapped, setSwapped] = useState(false);
+  const [showFare, setShowFare] = useState(0);
 
   useEffect(() => {
     const onSwap = () => setSwapped((current) => !current);
@@ -606,20 +708,21 @@ export function TripTab() {
             <StationSelect id="to" label={m.trip.to} value={to} onChange={setTo} />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
-            {partyRates.map((rate) => (
-              <PartyCount
-                key={rate.key}
-                label={m.party[rate.key].label}
-                hint={
-                  rate.key === "adults" && (phase === "before" || phase === "active") && isMalaysian
-                    ? m.party.adults.launchHint
-                    : m.party[rate.key].hint
-                }
-                value={party[rate.key]}
-                onChange={(next) => setParty((current) => ({ ...current, [rate.key]: next }))}
-              />
-            ))}
+          <PartyFields
+            className="max-lg:hidden lg:grid-cols-1"
+            party={party}
+            phase={phase}
+            isMalaysian={isMalaysian}
+            onChange={(key, next) => setParty((current) => ({ ...current, [key]: next }))}
+          />
+          <div className="lg:hidden">
+            <PartyDrawer
+              party={party}
+              phase={phase}
+              isMalaysian={isMalaysian}
+              onChange={(key, next) => setParty((current) => ({ ...current, [key]: next }))}
+              onViewFare={() => setShowFare((count) => count + 1)}
+            />
           </div>
           {phase === "before" || phase === "active" ? (
             <MalaysianSwitch
@@ -643,6 +746,8 @@ export function TripTab() {
           isMalaysian={isMalaysian}
           phase={phase}
           onAddAdult={() => setParty((c) => ({ ...c, adults: 1 }))}
+          onPartyChange={(key, next) => setParty((current) => ({ ...current, [key]: next }))}
+          showFare={showFare}
         />
       </div>
     </div>

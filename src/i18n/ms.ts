@@ -107,6 +107,7 @@ export const ms: Messages = {
     startingFare: "Kadar permulaan",
     viewBreakdown: "Lihat pecahan penuh",
     breakdownTitle: "Pecahan tambang",
+    passengers: "Penumpang",
     copy: "Salin Pautan",
     copied: "Pautan Disalin",
     copyPrompt: "Salin pautan ini",

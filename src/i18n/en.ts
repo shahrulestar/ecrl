@@ -100,6 +100,7 @@ export const en = {
     startingFare: "Starting fare",
     viewBreakdown: "View full breakdown",
     breakdownTitle: "Fare breakdown",
+    passengers: "Passengers",
     copy: "Copy Link",
     copied: "Link Copied",
     copyPrompt: "Copy this link",
