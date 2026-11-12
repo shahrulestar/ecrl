@@ -28,8 +28,8 @@ export function decodePartyParam(value: string): Party | null {
 }
 
 export const DEFAULT_FARE_STATE: FareState = {
-  from: null,
-  to: null,
+  from: "Gombak",
+  to: "Kota Bharu",
   party: DEFAULT_PARTY,
   my: true,
 };

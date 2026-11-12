@@ -44,6 +44,8 @@ export interface MapProps {
   showTooltips?: boolean
   renderTooltip?: (region: MapRegionData) => ReactNode
   className?: string
+  /** How the viewBox sits in the element. Interactive maps pass this so a tall phone does not letterbox the page. */
+  preserveAspectRatio?: string
   children?: ReactNode
   'aria-label'?: string
   enableZoom?: boolean
@@ -113,6 +115,7 @@ function MapInner({
   showTooltips = true,
   renderTooltip,
   className,
+  preserveAspectRatio,
   children,
   'aria-label': ariaLabel,
   enableZoom = false,
@@ -665,6 +668,7 @@ function MapInner({
         aria-label={mapLabel}
         aria-describedby={descId}
         viewBox={data.viewBox}
+        preserveAspectRatio={preserveAspectRatio}
         className={cn('h-auto w-full', className)}
         style={
           enableZoom

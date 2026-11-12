@@ -29,7 +29,7 @@ export const en = {
   shell: {
     title: "ECRL Fare Calculator",
     tabTrip: "Your Trip",
-    tabStation: "By Station",
+    tabStation: "Fare Table",
     tabTable: "Fare Table",
     tabMap: "Map",
     returnLabel: "Return",
@@ -93,6 +93,7 @@ export const en = {
     stopOne: "stop",
     stopMany: "stops",
     percentOff: "{percent}% off",
+    transit: "Transit {time}",
     transitExpress: "Transit {time} · Express {fare}, {expressTime}",
     board: "Board",
     hopNote:
@@ -102,6 +103,7 @@ export const en = {
     viewBreakdownAction: "View Full Breakdown",
     breakdownTitle: "Fare breakdown",
     passengers: "Passengers",
+    routeLabel: "Route",
     copy: "Copy Link",
     copied: "Link Copied",
     copyPrompt: "Copy this link",

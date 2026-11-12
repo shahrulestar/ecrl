@@ -8,14 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MAP_DOUBLE_TAP_MS, Map } from "@/components/shadcnmaps/map";
 import { useMapContext } from "@/components/shadcnmaps/map-context";
-import { MapControls } from "@/components/shadcnmaps/map-controls";
 import type { ZoomState } from "@/components/shadcnmaps/types";
 import { malaysiaMapData } from "@/components/shadcnmaps/map-data/malaysia";
-import { pathBetween, stationIndex, type StationName } from "@/data/fares";
+import { formatRm, pathBetween, publishedJourney, stationIndex, type StationName } from "@/data/fares";
 import { ecrlRoute, lineStops, peninsulaViewBox, type LineStop } from "@/data/ecrl-line";
 import { fill } from "@/i18n/fill";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
+import { FarePeek } from "@/components/fare/trip-tab";
+import { AnimatedFarePrice, usePromoPhase } from "@/components/fare/shared";
+import { quoteTrip } from "@/lib/fare-quote";
 import { fareStateQuery } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 
@@ -112,8 +114,6 @@ function RouteMap({
   labelEnds?: boolean;
 }) {
   const [zoom, setZoom] = useState(restZoom);
-  /** Bumped on reset so the route line draws again. */
-  const [replay, setReplay] = useState(0);
   const [hoveredStop, setHoveredStop] = useState<StationName | null>(null);
   const [pinnedStop, setPinnedStop] = useState<StationName | null>(null);
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
@@ -197,7 +197,7 @@ function RouteMap({
         }}
         onClick={(event) => {
           if (!interactive || !isTap(event)) return;
-          if (!(event.target as Element).closest("[data-stop], [data-slot=map-controls]")) setPinnedStop(null);
+          if (!(event.target as Element).closest("[data-stop]")) setPinnedStop(null);
         }}
       >
         <Map
@@ -205,19 +205,10 @@ function RouteMap({
           showLabels={false}
           showTooltips={false}
           aria-label={label}
-          className="size-full"
+          className={interactive ? "size-full h-full! w-full" : "size-full"}
+          preserveAspectRatio={interactive ? "xMidYMin meet" : undefined}
           enableZoom={interactive}
           zoomConfig={interactive ? zoomConfig : undefined}
-          controls={
-            interactive ? (
-              <MapControls
-                position="bottom-right"
-                showPanButtons={false}
-                onReset={() => setReplay((count) => count + 1)}
-                className="right-auto bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 -translate-x-1/2 flex-row rounded-lg border bg-background/90 p-1 shadow-md backdrop-blur sm:right-[calc(env(safe-area-inset-right)+0.75rem)] sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:left-auto sm:translate-x-0 sm:flex-col"
-              />
-            ) : undefined
-          }
           disabledRegions={malaysiaMapData.regions.map((region) => region.id)}
           regions={malaysiaMapData.regions.map((region) => {
             const onRoute = routeRegionIds.has(region.id);
@@ -243,7 +234,7 @@ function RouteMap({
             className="pointer-events-none stroke-muted-foreground stroke-[3px] [vector-effect:non-scaling-stroke]"
           />
           <path
-            key={`${from}-${to}-${replay}`}
+            key={`${from}-${to}`}
             d={ecrlRoute.d}
             fill="none"
             strokeLinejoin="round"
@@ -309,7 +300,7 @@ function RouteMap({
               const isEnd = stop.name === from || stop.name === to;
               return (
                 <StationLabel
-                  key={labelEnds && isEnd ? `${stop.name}-${replay}` : stop.name}
+                  key={stop.name}
                   stop={stop}
                   delayed={labelEnds && isEnd}
                   unit={1 / (labelScale * zoom.scale)}
@@ -375,33 +366,105 @@ export function RouteLegend({
   );
 }
 
+function MapFareCard({
+  href,
+  label,
+  total,
+  baseTotal,
+  discounted,
+  route,
+  detail,
+}: {
+  href: string;
+  label: string;
+  total: number;
+  baseTotal: number;
+  discounted: boolean;
+  route: string;
+  detail: string;
+}) {
+  const { m } = useI18n();
+
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="stage-swap hidden w-full max-w-64 flex-col gap-2 rounded-lg bg-background p-3 text-left shadow-sm ring-1 ring-foreground/10 outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring sm:flex"
+    >
+      <span className="shrink-0 text-left">
+        {discounted ? (
+          <span className="block text-sm text-muted-foreground tabular-nums line-through">
+            {formatRm(baseTotal)}
+          </span>
+        ) : null}
+        <AnimatedFarePrice amount={total} className="text-2xl leading-none font-semibold tracking-tighter" />
+      </span>
+      <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
+        <span className="text-xs text-muted-foreground">{m.trip.startingFare}</span>
+        <span className="max-w-full truncate text-sm font-medium">{route}</span>
+        <span className="max-w-full text-xs text-pretty text-muted-foreground">{detail}</span>
+      </span>
+    </Link>
+  );
+}
+
 /** The line on its own page; follows the trip picked in `q`, else shows the whole line. */
 export function LineMap() {
-  const { m } = useI18n();
+  const { locale, m } = useI18n();
   const [state] = useFareState();
+  const phase = usePromoPhase();
   const hasTrip = state.from !== null && state.to !== null;
   const from = state.from ?? lineStops[0].name;
   const to = state.to ?? lineStops[lineStops.length - 1].name;
   const copy = useRouteCopy(from, to);
   const query = fareStateQuery(state);
+  const quote = hasTrip
+    ? quoteTrip({
+        from,
+        to,
+        party: state.party,
+        isMalaysian: state.my,
+        promoActive: phase === "before" || phase === "active",
+      })
+    : null;
+  const tripHref = `/trip${query ? `?${query}` : ""}`;
+  const published = quote ? publishedJourney(from, to) : null;
+  const detail = published
+    ? `${copy.detail} · ${fill(m.trip.transit, { time: published.transitTime[locale] })}`
+    : copy.detail;
 
   return (
-    <main className="fixed inset-0 overflow-hidden">
+    <main className="fixed inset-x-0 top-0 h-lvh overflow-hidden bg-background">
       <RouteMap from={from} to={to} label={copy.label} interactive labelEnds={hasTrip} />
       <Button
         variant="outline"
-        className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-[calc(env(safe-area-inset-left)+0.75rem)] z-10 h-9 bg-background hover:bg-background dark:bg-background dark:hover:bg-background shadow-sm sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:left-[calc(env(safe-area-inset-left)+1rem)]"
-        render={<Link href={`/trip${query ? `?${query}` : ""}`} />}
+        className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-[calc(env(safe-area-inset-left)+0.75rem)] z-10 h-9 bg-background shadow-sm hover:bg-background sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:left-[calc(env(safe-area-inset-left)+1rem)] dark:bg-background dark:hover:bg-background"
+        render={<Link href={tripHref} />}
         nativeButton={false}
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
         {m.shell.tabTrip}
       </Button>
-      <RouteLegend
-        station={copy.legendStation}
-        trip={copy.legendTrip}
-        className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[calc(env(safe-area-inset-right)+0.75rem)] z-10 shadow-sm sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:right-[calc(env(safe-area-inset-right)+1rem)]"
-      />
+      <div className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[calc(env(safe-area-inset-right)+0.75rem)] z-10 flex flex-col items-end gap-2 sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:right-[calc(env(safe-area-inset-right)+1rem)]">
+        <RouteLegend station={copy.legendStation} trip={copy.legendTrip} className="shadow-sm" />
+        {quote ? (
+          <MapFareCard
+            href={tripHref}
+            total={quote.total}
+            baseTotal={quote.baseTotal}
+            discounted={quote.discounted}
+            route={copy.route}
+            detail={detail}
+            label={fill(m.trip.drawerAria, {
+              total: formatRm(quote.total),
+              was: quote.discounted ? fill(m.trip.was, { amount: formatRm(quote.baseTotal) }) : "",
+              from,
+              to,
+            })}
+          />
+        ) : null}
+      </div>
+      <FarePeek />
     </main>
   );
 }

@@ -17,6 +17,7 @@ import { fill } from "@/i18n/fill";
 import { useI18n } from "@/i18n/provider";
 import { tripHref } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
+import { TableTab } from "@/components/fare/table-tab";
 import { code, PromoBanner, StationSelect, usePromoPhase } from "@/components/fare/shared";
 
 export function StationTab() {
@@ -92,5 +93,19 @@ export function StationTab() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Phones get fares from one station. Tablet and desktop get the matrix. */
+export function FareBoard() {
+  return (
+    <>
+      <div className="md:hidden">
+        <StationTab />
+      </div>
+      <div className="hidden md:block">
+        <TableTab />
+      </div>
+    </>
   );
 }

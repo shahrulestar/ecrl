@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
@@ -39,23 +39,15 @@ import {
   pathBetween,
   publishedJourney,
   stationIndex,
+  stations,
   type PromoPhase,
   type StationName,
 } from "@/data/fares";
+import { partyRates, quoteTrip, sen } from "@/lib/fare-quote";
 import { fareStateQuery, PARTY_MAX, type Party } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 import { RouteLabel } from "@/components/fare/state-flag";
-
-const partyRates = [
-  { key: "adults", off: 0 },
-  { key: "students", off: 0.4 },
-  { key: "half", off: 0.5 },
-] as const;
-
-function sen(amount: number) {
-  return Math.round(amount * 100) / 100;
-}
 
 function PartyCount({
   label,
@@ -232,11 +224,18 @@ function OutputCard({
   phase,
   onAddAdult,
   onPartyChange,
+  onFrom,
+  onTo,
   showFare = 0,
+  peekOnly = false,
 }: {
   onAddAdult?: () => void;
   onPartyChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
+  onFrom?: (next: StationName) => void;
+  onTo?: (next: StationName) => void;
   showFare?: number;
+  /** Map page: the same mobile peek and drawer, with no side card. */
+  peekOnly?: boolean;
   from: StationName | null;
   to: StationName | null;
   party: Party;
@@ -252,7 +251,8 @@ function OutputCard({
     if (showFare > 0) setFareOpen(true);
   }, [showFare]);
 
-  if (!from || !to)
+  if (!from || !to) {
+    if (peekOnly) return null;
     return (
       <Empty className="stage-swap min-h-40 p-4">
         <EmptyHeader>
@@ -261,8 +261,10 @@ function OutputCard({
         </EmptyHeader>
       </Empty>
     );
+  }
 
-  if (from === to)
+  if (from === to) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -273,9 +275,11 @@ function OutputCard({
         detail={m.trip.sameDetail}
       />
     );
+  }
 
   const fare = getFare(from, to);
-  if (fare == null)
+  if (fare == null) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -286,9 +290,11 @@ function OutputCard({
         detail={m.trip.missingDetail}
       />
     );
+  }
 
   const people = party.adults + party.students + party.half;
-  if (people === 0)
+  if (people === 0) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -307,12 +313,16 @@ function OutputCard({
         }
       />
     );
+  }
 
   const published = publishedJourney(from, to);
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
   const direction = stationIndex(from) < stationIndex(to) ? m.trip.east : m.trip.west;
   const promoActive = phase === "before" || phase === "active";
+  const quote = quoteTrip({ from, to, party, isMalaysian, promoActive });
+  if (!quote) return null;
+  const { total, baseTotal, discounted } = quote;
   const lines = partyRates
     .map((rate) => {
       const count = party[rate.key];
@@ -330,14 +340,6 @@ function OutputCard({
       };
     })
     .filter((line) => line.count > 0);
-  const total = sen(lines.reduce((sum, line) => sum + line.amount, 0));
-  const baseTotal = sen(
-    partyRates.reduce((sum, rate) => {
-      const each = sen(fare * (1 - rate.off));
-      return sum + sen(each * party[rate.key]);
-    }, 0),
-  );
-  const discounted = total < baseTotal;
   const hopSum = path.slice(1).reduce((sum, stop, i) => {
     const hop = getFare(path[i].name, stop.name);
     return sum + (hop ?? 0);
@@ -446,11 +448,14 @@ function OutputCard({
 
   return (
     <>
-      {renderCard("max-lg:hidden", true)}
+      {peekOnly ? null : renderCard("max-lg:hidden", true)}
       <Drawer showSwipeHandle open={fareOpen} onOpenChange={setFareOpen}>
         <DrawerTrigger
           data-fare-peek
-          className="peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] lg:hidden"
+          className={cn(
+            "peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)]",
+            peekOnly ? "sm:hidden" : "lg:hidden",
+          )}
           aria-label={fill(m.trip.drawerAria, {
             total: formatRm(total),
             was: discounted ? fill(m.trip.was, { amount: formatRm(baseTotal) }) : "",
@@ -486,18 +491,67 @@ function OutputCard({
             {renderCard("border-0 ring-0")}
           </div>
           <div className="flex flex-col gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <PartyDrawer
-              party={party}
-              phase={phase}
-              isMalaysian={isMalaysian}
-              onChange={onPartyChange}
-              onViewFare={() => setFareOpen(true)}
-            />
-            <FareActions />
+            {peekOnly && onFrom && onTo ? (
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <PartyDrawer
+                    compact
+                    party={party}
+                    phase={phase}
+                    isMalaysian={isMalaysian}
+                    onChange={onPartyChange}
+                    onViewFare={() => setFareOpen(true)}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <RouteDrawer
+                    compact
+                    from={from}
+                    to={to}
+                    onFrom={onFrom}
+                    onTo={onTo}
+                    onViewFare={() => setFareOpen(true)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <PartyDrawer
+                party={party}
+                phase={phase}
+                isMalaysian={isMalaysian}
+                onChange={onPartyChange}
+                onViewFare={() => setFareOpen(true)}
+              />
+            )}
+            <FareActions hideMap={peekOnly} />
           </div>
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+/** The trip page's mobile fare peek, on the map. Opens the same breakdown. */
+export function FarePeek() {
+  const [state, update] = useFareState();
+  const phase = usePromoPhase();
+
+  return (
+    <OutputCard
+      peekOnly
+      from={state.from}
+      to={state.to}
+      party={state.party}
+      isMalaysian={state.my}
+      phase={phase}
+      onPartyChange={(key, next) => update({ party: { ...state.party, [key]: next } })}
+      onFrom={(next) =>
+        update(state.to && next === state.to ? { from: state.to, to: state.from } : { from: next })
+      }
+      onTo={(next) =>
+        update(state.from && next === state.from ? { from: state.to, to: state.from } : { to: next })
+      }
+    />
   );
 }
 
@@ -507,12 +561,14 @@ function PartyDrawer({
   isMalaysian,
   onChange,
   onViewFare,
+  compact = false,
 }: {
   party: Party;
   phase: PromoPhase | null;
   isMalaysian: boolean;
   onChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
   onViewFare?: () => void;
+  compact?: boolean;
 }) {
   const { m } = useI18n();
   const summary = partyRates
@@ -522,12 +578,16 @@ function PartyDrawer({
 
   return (
     <Drawer showSwipeHandle>
-      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-background px-3 text-left text-sm">
-        <span className="shrink-0 font-medium">{m.trip.passengers}</span>
-        <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
-          <span className="truncate">{summary || m.trip.passengersTitle}</span>
-          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
-        </span>
+      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+        <span className="truncate font-medium">{m.trip.passengers}</span>
+        {compact ? (
+          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+            <span className="truncate">{summary || m.trip.passengersTitle}</span>
+            <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
+          </span>
+        )}
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
@@ -549,21 +609,200 @@ function PartyDrawer({
   );
 }
 
-function FareActions() {
+const WHEEL_ROW = 44;
+const WHEEL_VISIBLE = 5;
+
+function StationWheel({
+  value,
+  onChange,
+  label,
+}: {
+  value: StationName;
+  onChange: (next: StationName) => void;
+  label: string;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scrollIndex, setScrollIndex] = useState(() =>
+    Math.max(0, stations.findIndex((station) => station.name === value)),
+  );
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const index = Math.max(0, stations.findIndex((station) => station.name === value));
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    list.scrollTop = index * WHEEL_ROW;
+    setScrollIndex(index);
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    [],
+  );
+
+  function settle() {
+    const list = listRef.current;
+    if (!list) return;
+    const index = Math.min(
+      stations.length - 1,
+      Math.max(0, Math.round(list.scrollTop / WHEEL_ROW)),
+    );
+    const next = stations[index]?.name;
+    if (next && next !== value) onChange(next);
+  }
+
+  return (
+    <div className="relative" style={{ height: WHEEL_ROW * WHEEL_VISIBLE }}>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-2 top-1/2 z-0 h-11 -translate-y-1/2 rounded-lg bg-muted"
+      />
+      <div
+        ref={listRef}
+        role="listbox"
+        aria-label={label}
+        tabIndex={0}
+        className="relative z-10 h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          maskImage: "linear-gradient(to bottom, transparent, black 18%, black 82%, transparent)",
+        }}
+        onScroll={() => {
+          const list = listRef.current;
+          if (!list) return;
+          setScrollIndex(list.scrollTop / WHEEL_ROW);
+          if (settleTimer.current) clearTimeout(settleTimer.current);
+          settleTimer.current = setTimeout(settle, 80);
+        }}
+        onKeyDown={(event) => {
+          const index = stations.findIndex((station) => station.name === value);
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          const next =
+            stations[event.key === "ArrowDown" ? Math.min(stations.length - 1, index + 1) : Math.max(0, index - 1)];
+          if (next) onChange(next.name);
+        }}
+      >
+        <div aria-hidden="true" style={{ height: WHEEL_ROW * 2 }} />
+        {stations.map((station, index) => {
+          const distance = Math.abs(index - scrollIndex);
+          const selected = index === Math.round(scrollIndex);
+          return (
+            <button
+              key={station.name}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              className={cn(
+                "flex h-11 w-full snap-center items-center justify-center gap-2 text-base",
+                selected ? "font-medium text-foreground" : "text-muted-foreground",
+              )}
+              style={{ opacity: Math.max(0.28, 1 - distance * 0.34) }}
+              onClick={() => onChange(station.name)}
+            >
+              <span className="w-6 text-right text-xs tabular-nums">{code(station.index)}</span>
+              <span className="truncate">{station.name}</span>
+            </button>
+          );
+        })}
+        <div aria-hidden="true" style={{ height: WHEEL_ROW * 2 }} />
+      </div>
+    </div>
+  );
+}
+
+function RouteDrawer({
+  from,
+  to,
+  onFrom,
+  onTo,
+  onViewFare,
+  compact = false,
+}: {
+  from: StationName;
+  to: StationName;
+  onFrom: (next: StationName) => void;
+  onTo: (next: StationName) => void;
+  onViewFare?: () => void;
+  compact?: boolean;
+}) {
+  const { m } = useI18n();
+  const [end, setEnd] = useState<"from" | "to">("from");
+  const active = end === "from" ? from : to;
+  const pick = end === "from" ? onFrom : onTo;
+  const ends = [
+    { key: "from" as const, label: m.trip.from, station: from },
+    { key: "to" as const, label: m.trip.to, station: to },
+  ];
+
+  return (
+    <Drawer showSwipeHandle>
+      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+        <span className="truncate font-medium">{m.trip.routeLabel}</span>
+        {compact ? (
+          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+            <span className="truncate">{fill(m.trip.route, { from, to })}</span>
+            <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
+          </span>
+        )}
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>{m.trip.routeLabel}</DrawerTitle>
+        </DrawerHeader>
+        <div className="flex flex-col gap-3 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="tablist">
+            {ends.map((item) => {
+              const selected = end === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className={cn(
+                    "flex min-w-0 flex-col items-start rounded-lg px-3 py-2 text-left",
+                    selected ? "bg-background shadow-sm" : "text-muted-foreground",
+                  )}
+                  onClick={() => setEnd(item.key)}
+                >
+                  <span className="text-xs">{item.label}</span>
+                  <span className="w-full truncate text-sm font-medium text-foreground">{item.station}</span>
+                </button>
+              );
+            })}
+          </div>
+          <StationWheel key={end} label={end === "from" ? m.trip.from : m.trip.to} value={active} onChange={pick} />
+          <Button className="h-11 w-full" render={<DrawerClose />} onClick={onViewFare}>
+            {m.trip.viewBreakdownAction}
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+function FareActions({ hideMap = false }: { hideMap?: boolean }) {
   const { m } = useI18n();
   const [state] = useFareState();
   const query = fareStateQuery(state);
 
   return (
     <div className="flex gap-2">
-      <Button
-        className="h-11 flex-1"
-        nativeButton={false}
-        render={<Link href={`/map${query ? `?${query}` : ""}`} />}
-      >
-        {m.trip.viewMap}
-      </Button>
-      <CopyLinkButton />
+      {hideMap ? null : (
+        <Button
+          className="h-11 flex-1"
+          nativeButton={false}
+          render={<Link href={`/map${query ? `?${query}` : ""}`} />}
+        >
+          {m.trip.viewMap}
+        </Button>
+      )}
+      <CopyLinkButton primary={hideMap} />
     </div>
   );
 }
@@ -578,7 +817,7 @@ const copyIdleLabel = "group-data-copied/copy:opacity-0 group-data-copied/copy:b
 const copyDoneLabel =
   "opacity-0 blur-[2px] group-data-copied/copy:opacity-100 group-data-copied/copy:blur-none";
 
-function CopyLinkButton() {
+function CopyLinkButton({ primary = false }: { primary?: boolean }) {
   const { m } = useI18n();
   const [copied, setCopied] = useState(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -604,9 +843,9 @@ function CopyLinkButton() {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={primary ? "default" : "outline"}
       data-copied={copied ? "" : undefined}
-      className="group/copy h-11 flex-1 gap-2 text-sm"
+      className="group/copy h-11 w-full flex-1 gap-2 text-sm"
       onClick={copy}
     >
       <span aria-hidden="true" className="relative size-4 shrink-0">

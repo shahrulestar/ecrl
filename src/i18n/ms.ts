@@ -32,7 +32,7 @@ export const ms: Messages = {
   shell: {
     title: "Kalkulator Tambang ECRL",
     tabTrip: "Perjalanan",
-    tabStation: "Stesen",
+    tabStation: "Jadual",
     tabTable: "Jadual",
     tabMap: "Peta",
     returnLabel: "Ulang alik",
@@ -100,6 +100,7 @@ export const ms: Messages = {
     stopOne: "stesen",
     stopMany: "stesen",
     percentOff: "diskaun {percent}%",
+    transit: "Transit {time}",
     transitExpress: "Transit {time} · Ekspres {fare}, {expressTime}",
     board: "Naik",
     hopNote:
@@ -109,6 +110,7 @@ export const ms: Messages = {
     viewBreakdownAction: "Lihat Pecahan Penuh",
     breakdownTitle: "Pecahan tambang",
     passengers: "Penumpang",
+    routeLabel: "Laluan",
     copy: "Salin Pautan",
     copied: "Pautan Disalin",
     copyPrompt: "Salin pautan ini",
