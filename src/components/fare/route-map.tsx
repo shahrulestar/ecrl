@@ -115,6 +115,8 @@ function RouteMap({
   labelEnds?: boolean;
 }) {
   const [zoom, setZoom] = useState(restZoom);
+  /** Bumped on reset so the route line draws again. */
+  const [replay, setReplay] = useState(0);
   const [hoveredStop, setHoveredStop] = useState<StationName | null>(null);
   const [pinnedStop, setPinnedStop] = useState<StationName | null>(null);
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
@@ -245,7 +247,7 @@ function RouteMap({
             className="pointer-events-none stroke-muted-foreground stroke-[3px] [vector-effect:non-scaling-stroke]"
           />
           <path
-            key={`${from}-${to}`}
+            key={`${from}-${to}-${replay}`}
             d={ecrlRoute.d}
             fill="none"
             strokeLinejoin="round"
@@ -311,7 +313,7 @@ function RouteMap({
               const isEnd = stop.name === from || stop.name === to;
               return (
                 <StationLabel
-                  key={stop.name}
+                  key={labelEnds && isEnd ? `${stop.name}-${replay}` : stop.name}
                   stop={stop}
                   delayed={labelEnds && isEnd}
                   unit={1 / (labelScale * zoom.scale)}
