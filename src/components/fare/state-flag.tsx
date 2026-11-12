@@ -10,11 +10,13 @@ export function stateOf(name: StationName): StateName | null {
   return stations.find((station) => station.name === name)?.state ?? null;
 }
 
+const FLAG_BOX = { width: 1024, height: 512 } as const;
+
 const flagSrc: Record<StateName, { src: string; width: number; height: number }> = {
-  Pahang: { src: "/flags/pahang.webp", width: 1024, height: 512 },
-  Selangor: { src: "/flags/selangor.webp", width: 1024, height: 512 },
-  Terengganu: { src: "/flags/terengganu.webp", width: 856, height: 344 },
-  Kelantan: { src: "/flags/kelantan.webp", width: 1024, height: 512 },
+  Pahang: { src: "/flags/pahang.webp", ...FLAG_BOX },
+  Selangor: { src: "/flags/selangor.webp", ...FLAG_BOX },
+  Terengganu: { src: "/flags/terengganu.webp", ...FLAG_BOX },
+  Kelantan: { src: "/flags/kelantan.webp", ...FLAG_BOX },
 };
 
 export function StateFlag({ state, className }: { state: StateName; className?: string }) {
@@ -35,7 +37,7 @@ export function StateFlag({ state, className }: { state: StateName; className?: 
         width={flag.width}
         height={flag.height}
         draggable={false}
-        className="block size-full object-cover"
+        className="block size-full object-contain"
       />
     </span>
   );

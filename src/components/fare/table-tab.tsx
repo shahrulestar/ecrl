@@ -45,6 +45,8 @@ export function TableTab() {
   const activeFrom = stations[activeRow]?.name;
   const activeTo = stations[activeCol]?.name;
   const activeFare = activeFrom && activeTo ? getFare(activeFrom, activeTo) : null;
+  const pickedRow = from ? stationIndex(from) : -1;
+  const pickedCol = to ? stationIndex(to) : -1;
 
   function openPair(origin: StationName, destination: StationName) {
     router.push(tripHref(origin, destination));
@@ -67,7 +69,7 @@ export function TableTab() {
       <CardContent className="flex flex-col gap-3">
         <PromoBanner phase={phase} />
         <Table
-          className="w-full min-w-[44rem] text-xs tabular-nums lg:min-w-full lg:table-fixed lg:text-sm"
+          className="w-full min-w-[44rem] border-separate border-spacing-0.5 text-xs tabular-nums lg:min-w-full lg:table-fixed lg:border-spacing-1 lg:text-sm"
           onPointerLeave={() => setHover(null)}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setHover(null);
@@ -75,12 +77,15 @@ export function TableTab() {
         >
           <caption className="sr-only">{m.table.caption}</caption>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="sticky left-0 z-10 w-40 bg-card">{m.table.board}</TableHead>
+            <TableRow className="border-0 hover:bg-transparent">
+              <TableHead className="sticky left-0 z-10 w-40 rounded-md bg-card">{m.table.board}</TableHead>
               {stations.map((station, col) => (
                 <TableHead
                   key={station.name}
-                  className={cn("px-1 text-center", col === activeCol && "bg-muted")}
+                  className={cn(
+                    "rounded-md px-1 text-center",
+                    col === activeCol && "bg-muted",
+                  )}
                   title={station.name}
                 >
                   {code(station.index)}
@@ -90,10 +95,10 @@ export function TableTab() {
           </TableHeader>
           <TableBody>
             {stations.map((origin, row) => (
-              <TableRow key={origin.name} className="hover:bg-transparent">
+              <TableRow key={origin.name} className="border-0 hover:bg-transparent">
                 <TableHead
                   className={cn(
-                    "sticky left-0 z-10 text-left whitespace-nowrap",
+                    "sticky left-0 z-10 rounded-md text-left whitespace-nowrap",
                     row === activeRow ? "bg-muted" : "bg-card",
                   )}
                 >
@@ -105,20 +110,38 @@ export function TableTab() {
                     hover !== null &&
                     ((row === hover.row && col <= hover.col) ||
                       (col === hover.col && row <= hover.row));
+                  const isHoverCell =
+                    hover !== null && row === hover.row && col === hover.col;
+                  const isPicked =
+                    hover === null &&
+                    pickedRow >= 0 &&
+                    pickedCol >= 0 &&
+                    row === pickedRow &&
+                    col === pickedCol;
+                  const cellClass = cn(
+                    "rounded-md p-0 text-center transition-colors focus-within:ring-2 focus-within:ring-ring/30",
+                    isHoverCell && "bg-primary text-primary-foreground",
+                    onPath && !isHoverCell && "bg-muted",
+                    isPicked && "lg:bg-primary lg:text-primary-foreground",
+                  );
+
                   return (
-                    <TableCell
-                      key={destination.name}
-                      className={cn("p-1 text-center", onPath && "bg-muted/50")}
-                    >
+                    <TableCell key={destination.name} className={cellClass}>
                       {fare == null ? (
-                        <span className="mx-auto flex size-9 items-center justify-center text-muted-foreground lg:w-full">
+                        <span className="flex h-9 w-full items-center justify-center text-muted-foreground">
                           —
                         </span>
                       ) : (
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="mx-auto flex size-9 bg-transparent px-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent lg:w-full lg:px-1"
+                          className={cn(
+                            "h-9 w-full min-w-0 rounded-[inherit] border-0 bg-transparent px-1 font-medium text-inherit shadow-none hover:bg-transparent aria-expanded:bg-transparent focus-visible:ring-0 dark:hover:bg-transparent",
+                            isHoverCell &&
+                              "text-primary-foreground hover:!text-primary-foreground aria-expanded:!text-primary-foreground",
+                            isPicked &&
+                              "lg:text-primary-foreground lg:hover:!text-primary-foreground lg:aria-expanded:!text-primary-foreground",
+                          )}
                           onClick={() => openPair(origin.name, destination.name)}
                           onPointerEnter={(event) => {
                             if (event.pointerType === "mouse") setHover({ row, col });

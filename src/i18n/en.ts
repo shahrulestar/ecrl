@@ -115,6 +115,8 @@ export const en = {
     drawerAria: "Fare {total}{was}, {from} to {to}. Open full breakdown",
     was: ", was {amount}",
     viewMap: "View Map",
+    back: "Back",
+    backAria: "Back to your trip",
     mapLegend: "Legend",
     legendStation: "Station",
     legendTrip: "Your trip",

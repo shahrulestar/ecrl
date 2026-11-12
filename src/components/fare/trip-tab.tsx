@@ -49,6 +49,9 @@ import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 import { RouteLabel } from "@/components/fare/state-flag";
 
+const cardDrawerTriggerClass =
+  "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm dark:bg-transparent";
+
 function PartyCount({
   label,
   hint,
@@ -578,7 +581,7 @@ function PartyDrawer({
 
   return (
     <Drawer showSwipeHandle>
-      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+      <DrawerTrigger className={cardDrawerTriggerClass}>
         <span className="truncate font-medium">{m.trip.passengers}</span>
         {compact ? (
           <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
@@ -739,7 +742,7 @@ function RouteDrawer({
 
   return (
     <Drawer showSwipeHandle>
-      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+      <DrawerTrigger className={cardDrawerTriggerClass}>
         <span className="truncate font-medium">{m.trip.routeLabel}</span>
         {compact ? (
           <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
@@ -877,17 +880,9 @@ export function TripTab() {
   const phase = usePromoPhase();
   const { from, to, party } = query;
   const isMalaysian = query.my;
-  const [swapped, setSwapped] = useState(false);
   const [showFare, setShowFare] = useState(0);
 
-  useEffect(() => {
-    const onSwap = () => setSwapped((current) => !current);
-    window.addEventListener("fare:swap", onSwap);
-    return () => window.removeEventListener("fare:swap", onSwap);
-  }, []);
-
   function swapStations() {
-    setSwapped((current) => !current);
     setFrom(to);
     setTo(from);
   }
@@ -926,19 +921,9 @@ export function TripTab() {
                   />
                 }
               >
-                <HugeiconsIcon
-                  icon={ArrowUpDownIcon}
-                  strokeWidth={2}
-                  className="transition-[rotate] duration-200 ease-(--ease-out-strong) sm:hidden"
-                  style={{ rotate: swapped ? "180deg" : "0deg" }}
-                />
+                <HugeiconsIcon icon={ArrowUpDownIcon} strokeWidth={2} className="sm:hidden" />
                 <span className="sm:hidden">{m.trip.swap}</span>
-                <HugeiconsIcon
-                  icon={ArrowLeftRightIcon}
-                  strokeWidth={2}
-                  className="hidden transition-[rotate] duration-200 ease-(--ease-out-strong) sm:block"
-                  style={{ rotate: swapped ? "180deg" : "0deg" }}
-                />
+                <HugeiconsIcon icon={ArrowLeftRightIcon} strokeWidth={2} className="hidden sm:block" />
               </TooltipTrigger>
               <TooltipContent className="max-md:hidden">
                 {m.shell.shortcutSwap} <Kbd>S</Kbd>

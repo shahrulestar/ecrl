@@ -48,7 +48,6 @@ export function Shortcuts() {
       const bare = pathname.replace(/^\/ms(?=\/|$)/, "");
       if (key === "s" && bare.startsWith("/trip")) {
         setQuery({ from: state.to, to: state.from });
-        window.dispatchEvent(new Event("fare:swap"));
         return;
       }
 
