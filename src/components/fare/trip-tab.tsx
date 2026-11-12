@@ -880,17 +880,9 @@ export function TripTab() {
   const phase = usePromoPhase();
   const { from, to, party } = query;
   const isMalaysian = query.my;
-  const [swapped, setSwapped] = useState(false);
   const [showFare, setShowFare] = useState(0);
 
-  useEffect(() => {
-    const onSwap = () => setSwapped((current) => !current);
-    window.addEventListener("fare:swap", onSwap);
-    return () => window.removeEventListener("fare:swap", onSwap);
-  }, []);
-
   function swapStations() {
-    setSwapped((current) => !current);
     setFrom(to);
     setTo(from);
   }
@@ -929,19 +921,9 @@ export function TripTab() {
                   />
                 }
               >
-                <HugeiconsIcon
-                  icon={ArrowUpDownIcon}
-                  strokeWidth={2}
-                  className="transition-[rotate] duration-200 ease-(--ease-out-strong) sm:hidden"
-                  style={{ rotate: swapped ? "180deg" : "0deg" }}
-                />
+                <HugeiconsIcon icon={ArrowUpDownIcon} strokeWidth={2} className="sm:hidden" />
                 <span className="sm:hidden">{m.trip.swap}</span>
-                <HugeiconsIcon
-                  icon={ArrowLeftRightIcon}
-                  strokeWidth={2}
-                  className="hidden transition-[rotate] duration-200 ease-(--ease-out-strong) sm:block"
-                  style={{ rotate: swapped ? "180deg" : "0deg" }}
-                />
+                <HugeiconsIcon icon={ArrowLeftRightIcon} strokeWidth={2} className="hidden sm:block" />
               </TooltipTrigger>
               <TooltipContent className="max-md:hidden">
                 {m.shell.shortcutSwap} <Kbd>S</Kbd>
