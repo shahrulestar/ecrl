@@ -49,6 +49,9 @@ import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 import { RouteLabel } from "@/components/fare/state-flag";
 
+const cardDrawerTriggerClass =
+  "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm dark:bg-transparent";
+
 function PartyCount({
   label,
   hint,
@@ -578,7 +581,7 @@ function PartyDrawer({
 
   return (
     <Drawer showSwipeHandle>
-      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+      <DrawerTrigger className={cardDrawerTriggerClass}>
         <span className="truncate font-medium">{m.trip.passengers}</span>
         {compact ? (
           <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
@@ -739,7 +742,7 @@ function RouteDrawer({
 
   return (
     <Drawer showSwipeHandle>
-      <DrawerTrigger className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-left text-sm">
+      <DrawerTrigger className={cardDrawerTriggerClass}>
         <span className="truncate font-medium">{m.trip.routeLabel}</span>
         {compact ? (
           <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
