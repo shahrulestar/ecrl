@@ -110,6 +110,7 @@ export const ms: Messages = {
     viewBreakdownAction: "Lihat Pecahan Penuh",
     breakdownTitle: "Pecahan tambang",
     passengers: "Penumpang",
+    routeLabel: "Laluan",
     copy: "Salin Pautan",
     copied: "Pautan Disalin",
     copyPrompt: "Salin pautan ini",

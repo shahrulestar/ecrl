@@ -103,6 +103,7 @@ export const en = {
     viewBreakdownAction: "View Full Breakdown",
     breakdownTitle: "Fare breakdown",
     passengers: "Passengers",
+    routeLabel: "Route",
     copy: "Copy Link",
     copied: "Link Copied",
     copyPrompt: "Copy this link",
