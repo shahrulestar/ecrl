@@ -88,7 +88,6 @@ function ThemeToggle() {
 const tabLinks = [
   { id: "trip", labelKey: "tabTrip" },
   { id: "station", labelKey: "tabStation" },
-  { id: "table", labelKey: "tabTable" },
   { id: "map", labelKey: "tabMap" },
 ] as const;
 
@@ -171,11 +170,14 @@ function TabNav() {
 function TabNavView({ params }: { params: URLSearchParams }) {
   const { m } = useI18n();
   const pathname = usePathname().replace(/^\/ms(?=\/|$)/, "");
-  const active = tabLinks.find((tab) => pathname.startsWith(`/${tab.id}`))?.id ?? "trip";
+  const active =
+    pathname.startsWith("/station") || pathname.startsWith("/table")
+      ? "station"
+      : (tabLinks.find((tab) => pathname.startsWith(`/${tab.id}`))?.id ?? "trip");
 
   return (
     <Tabs value={active}>
-      <TabsList className="relative grid w-full grid-cols-4 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
+      <TabsList className="relative grid w-full grid-cols-3 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit sm:self-start sm:group-data-horizontal/tabs:h-9">
         <TabsIndicator />
         {tabLinks.map((tab) => (
           <TabsTrigger

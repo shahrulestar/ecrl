@@ -42,20 +42,11 @@ import {
   type PromoPhase,
   type StationName,
 } from "@/data/fares";
+import { partyRates, quoteTrip, sen } from "@/lib/fare-quote";
 import { fareStateQuery, PARTY_MAX, type Party } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 import { AnimatedFarePrice, code, StationSelect, usePromoPhase } from "@/components/fare/shared";
 import { RouteLabel } from "@/components/fare/state-flag";
-
-const partyRates = [
-  { key: "adults", off: 0 },
-  { key: "students", off: 0.4 },
-  { key: "half", off: 0.5 },
-] as const;
-
-function sen(amount: number) {
-  return Math.round(amount * 100) / 100;
-}
 
 function PartyCount({
   label,
@@ -233,10 +224,13 @@ function OutputCard({
   onAddAdult,
   onPartyChange,
   showFare = 0,
+  peekOnly = false,
 }: {
   onAddAdult?: () => void;
   onPartyChange: (key: (typeof partyRates)[number]["key"], next: number) => void;
   showFare?: number;
+  /** Map page: the same mobile peek and drawer, with no side card. */
+  peekOnly?: boolean;
   from: StationName | null;
   to: StationName | null;
   party: Party;
@@ -252,7 +246,8 @@ function OutputCard({
     if (showFare > 0) setFareOpen(true);
   }, [showFare]);
 
-  if (!from || !to)
+  if (!from || !to) {
+    if (peekOnly) return null;
     return (
       <Empty className="stage-swap min-h-40 p-4">
         <EmptyHeader>
@@ -261,8 +256,10 @@ function OutputCard({
         </EmptyHeader>
       </Empty>
     );
+  }
 
-  if (from === to)
+  if (from === to) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -273,9 +270,11 @@ function OutputCard({
         detail={m.trip.sameDetail}
       />
     );
+  }
 
   const fare = getFare(from, to);
-  if (fare == null)
+  if (fare == null) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -286,9 +285,11 @@ function OutputCard({
         detail={m.trip.missingDetail}
       />
     );
+  }
 
   const people = party.adults + party.students + party.half;
-  if (people === 0)
+  if (people === 0) {
+    if (peekOnly) return null;
     return (
       <FareState
         className="stage-swap"
@@ -307,12 +308,16 @@ function OutputCard({
         }
       />
     );
+  }
 
   const published = publishedJourney(from, to);
   const path = pathBetween(from, to);
   const between = Math.max(0, path.length - 2);
   const direction = stationIndex(from) < stationIndex(to) ? m.trip.east : m.trip.west;
   const promoActive = phase === "before" || phase === "active";
+  const quote = quoteTrip({ from, to, party, isMalaysian, promoActive });
+  if (!quote) return null;
+  const { total, baseTotal, discounted } = quote;
   const lines = partyRates
     .map((rate) => {
       const count = party[rate.key];
@@ -330,14 +335,6 @@ function OutputCard({
       };
     })
     .filter((line) => line.count > 0);
-  const total = sen(lines.reduce((sum, line) => sum + line.amount, 0));
-  const baseTotal = sen(
-    partyRates.reduce((sum, rate) => {
-      const each = sen(fare * (1 - rate.off));
-      return sum + sen(each * party[rate.key]);
-    }, 0),
-  );
-  const discounted = total < baseTotal;
   const hopSum = path.slice(1).reduce((sum, stop, i) => {
     const hop = getFare(path[i].name, stop.name);
     return sum + (hop ?? 0);
@@ -446,11 +443,14 @@ function OutputCard({
 
   return (
     <>
-      {renderCard("max-lg:hidden", true)}
+      {peekOnly ? null : renderCard("max-lg:hidden", true)}
       <Drawer showSwipeHandle open={fareOpen} onOpenChange={setFareOpen}>
         <DrawerTrigger
           data-fare-peek
-          className="peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)] lg:hidden"
+          className={cn(
+            "peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)]",
+            peekOnly ? "sm:hidden" : "lg:hidden",
+          )}
           aria-label={fill(m.trip.drawerAria, {
             total: formatRm(total),
             was: discounted ? fill(m.trip.was, { amount: formatRm(baseTotal) }) : "",
@@ -498,6 +498,24 @@ function OutputCard({
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+/** The trip page's mobile fare peek, on the map. Opens the same breakdown. */
+export function FarePeek() {
+  const [state, update] = useFareState();
+  const phase = usePromoPhase();
+
+  return (
+    <OutputCard
+      peekOnly
+      from={state.from}
+      to={state.to}
+      party={state.party}
+      isMalaysian={state.my}
+      phase={phase}
+      onPartyChange={(key, next) => update({ party: { ...state.party, [key]: next } })}
+    />
   );
 }
 

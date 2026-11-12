@@ -221,7 +221,7 @@
 }
 
 .route-draw {
-  animation: route-draw 900ms ease-out 400ms both;
+  animation: route-draw 1800ms ease-out 400ms both;
 }
 
 /* Slides up the first time a fare appears. Count changes do not remount it. */
@@ -266,7 +266,7 @@
   transform-box: fill-box;
 }
 .route-label-end {
-  animation: label-in 200ms var(--ease-out-strong) 1100ms both;
+  animation: label-in 200ms var(--ease-out-strong) 2000ms both;
 }
 .route-label-hover {
   animation: label-in 120ms var(--ease-out-strong) both;

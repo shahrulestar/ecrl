@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { FARE_QUERY_KEY } from "@/lib/fare-search";
 import { useFareState } from "@/lib/use-fare-state";
 
-const TABS = ["trip", "station", "table", "map"] as const;
+const TABS = ["trip", "station", "map"] as const;
 
 function isTypingTarget(target: EventTarget | null) {
   return (
@@ -17,7 +17,7 @@ function isTypingTarget(target: EventTarget | null) {
   );
 }
 
-/** Keyboard: 1–4 switch tabs, S swaps stations, / focuses the picker, D toggles theme. */
+/** Keyboard: 1–3 switch tabs, S swaps stations, / focuses the picker, D toggles theme. */
 export function Shortcuts() {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,7 +37,7 @@ export function Shortcuts() {
         return;
       }
 
-      const tabIndex = ["1", "2", "3", "4"].indexOf(event.key);
+      const tabIndex = ["1", "2", "3"].indexOf(event.key);
       if (tabIndex >= 0) {
         const id = TABS[tabIndex];
         const q = params.get(FARE_QUERY_KEY);
