@@ -7,6 +7,7 @@ import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MAP_DOUBLE_TAP_MS, Map } from "@/components/shadcnmaps/map";
+import { MapControls } from "@/components/shadcnmaps/map-controls";
 import { useMapContext } from "@/components/shadcnmaps/map-context";
 import type { ZoomState } from "@/components/shadcnmaps/types";
 import { malaysiaMapData } from "@/components/shadcnmaps/map-data/malaysia";
@@ -114,6 +115,8 @@ function RouteMap({
   labelEnds?: boolean;
 }) {
   const [zoom, setZoom] = useState(restZoom);
+  /** Bumped on reset so the route line draws again. */
+  const [replay, setReplay] = useState(0);
   const [hoveredStop, setHoveredStop] = useState<StationName | null>(null);
   const [pinnedStop, setPinnedStop] = useState<StationName | null>(null);
   const pressedAt = useRef<{ x: number; y: number } | null>(null);
@@ -197,7 +200,7 @@ function RouteMap({
         }}
         onClick={(event) => {
           if (!interactive || !isTap(event)) return;
-          if (!(event.target as Element).closest("[data-stop]")) setPinnedStop(null);
+          if (!(event.target as Element).closest("[data-stop], [data-slot=map-controls]")) setPinnedStop(null);
         }}
       >
         <Map
@@ -209,6 +212,16 @@ function RouteMap({
           preserveAspectRatio={interactive ? "xMidYMin meet" : undefined}
           enableZoom={interactive}
           zoomConfig={interactive ? zoomConfig : undefined}
+          controls={
+            interactive ? (
+              <MapControls
+                position="bottom-right"
+                showPanButtons={false}
+                onReset={() => setReplay((count) => count + 1)}
+                className="bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-[calc(env(safe-area-inset-right)+0.75rem)] rounded-lg border bg-background/90 p-1 shadow-md backdrop-blur max-sm:hidden"
+              />
+            ) : undefined
+          }
           disabledRegions={malaysiaMapData.regions.map((region) => region.id)}
           regions={malaysiaMapData.regions.map((region) => {
             const onRoute = routeRegionIds.has(region.id);
@@ -234,7 +247,7 @@ function RouteMap({
             className="pointer-events-none stroke-muted-foreground stroke-[3px] [vector-effect:non-scaling-stroke]"
           />
           <path
-            key={`${from}-${to}`}
+            key={`${from}-${to}-${replay}`}
             d={ecrlRoute.d}
             fill="none"
             strokeLinejoin="round"
@@ -300,7 +313,7 @@ function RouteMap({
               const isEnd = stop.name === from || stop.name === to;
               return (
                 <StationLabel
-                  key={stop.name}
+                  key={labelEnds && isEnd ? `${stop.name}-${replay}` : stop.name}
                   stop={stop}
                   delayed={labelEnds && isEnd}
                   unit={1 / (labelScale * zoom.scale)}
@@ -439,11 +452,11 @@ export function LineMap() {
       <Button
         variant="outline"
         className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-[calc(env(safe-area-inset-left)+0.75rem)] z-10 h-9 bg-background shadow-sm hover:bg-background sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:left-[calc(env(safe-area-inset-left)+1rem)] dark:bg-background dark:hover:bg-background"
-        render={<Link href={tripHref} />}
+        render={<Link href={tripHref} aria-label={m.trip.backAria} />}
         nativeButton={false}
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
-        {m.shell.tabTrip}
+        {m.trip.back}
       </Button>
       <div className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[calc(env(safe-area-inset-right)+0.75rem)] z-10 flex flex-col items-end gap-2 sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:right-[calc(env(safe-area-inset-right)+1rem)]">
         <RouteLegend station={copy.legendStation} trip={copy.legendTrip} className="shadow-sm" />

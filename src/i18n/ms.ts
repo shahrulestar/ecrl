@@ -122,6 +122,8 @@ export const ms: Messages = {
     drawerAria: "Tambang {total}{was}, {from} ke {to}. Buka pecahan penuh",
     was: ", sebelum ini {amount}",
     viewMap: "Lihat Peta",
+    back: "Kembali",
+    backAria: "Kembali ke perjalanan",
     mapLegend: "Legenda",
     legendStation: "Stesen",
     legendTrip: "Perjalanan anda",
