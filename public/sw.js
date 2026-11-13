@@ -1,11 +1,29 @@
-const CACHE = "ecrl-v1";
+const STATIC_CACHE = "ecrl-static-v2";
+const SHELL_CACHE = "ecrl-shell-v2";
+const META_CACHE = "ecrl-meta-v2";
+const KEEP = new Set([STATIC_CACHE, SHELL_CACHE, META_CACHE]);
 const PAGES = ["/trip", "/station", "/table", "/map"];
-const SHELLS = PAGES.flatMap((page) => [page, `/ms${page}`]);
+const localeKey = new Request("https://offline.ecrl/locale");
 
-function shellPath(pathname, malay) {
+function barePage(pathname) {
   const bare = pathname.replace(/\/$/, "").replace(/^\/ms(?=\/)/, "") || "/trip";
-  const page = PAGES.includes(bare) ? bare : "/trip";
-  return malay ? `/ms${page}` : page;
+  return PAGES.includes(bare) ? bare : "/trip";
+}
+
+function pathIsMalay(pathname) {
+  return /^\/ms(?=\/|$)/.test(pathname.replace(/\/$/, ""));
+}
+
+function shellKey(pathname, malay) {
+  return new Request(`https://offline.ecrl/${malay ? "ms" : "en"}${barePage(pathname)}`);
+}
+
+async function readLocale() {
+  const cache = await caches.open(META_CACHE);
+  const saved = await cache.match(localeKey);
+  if (!saved) return null;
+  const value = (await saved.text()).trim();
+  return value === "ms" || value === "en" ? value : null;
 }
 
 async function wantsMalay(request) {
@@ -13,55 +31,63 @@ async function wantsMalay(request) {
   if (/(?:^|;\s*)ecrl-locale=ms(?:;|$)/.test(header)) return true;
   if (/(?:^|;\s*)ecrl-locale=en(?:;|$)/.test(header)) return false;
   if ("cookieStore" in self) {
-    const cookie = await self.cookieStore.get("ecrl-locale");
-    return cookie?.value === "ms";
+    try {
+      const cookie = await self.cookieStore.get("ecrl-locale");
+      if (cookie?.value === "ms" || cookie?.value === "en") return cookie.value === "ms";
+    } catch {
+      /* Cookie Store can reject; fall through to the last page choice. */
+    }
   }
-  return false;
+  return (await readLocale()) === "ms";
 }
 
-async function precacheShells() {
-  const cache = await caches.open(CACHE);
-  await Promise.all(
-    SHELLS.map(async (path) => {
-      const response = await fetch(path, { credentials: "omit", cache: "reload" });
-      if (response.ok) await cache.put(path, response);
-    }),
+async function storeShell(request, response) {
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.includes("text/html")) return;
+  const html = await response.text();
+  const malay = /name="ecrl-locale"[^>]*content="ms"|content="ms"[^>]*name="ecrl-locale"/.test(html);
+  const cache = await caches.open(SHELL_CACHE);
+  await cache.put(
+    shellKey(new URL(request.url).pathname, malay),
+    new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
   );
 }
 
-async function networkFirstPage(request) {
+async function networkFirstPage(request, event) {
   try {
     const response = await fetch(request);
-    if (response.ok) return response;
+    if (response.ok) event.waitUntil(storeShell(request, response.clone()));
+    return response;
   } catch {
-    /* offline: fall through to the precached shell */
+    const url = new URL(request.url);
+    const malay = pathIsMalay(url.pathname) || (await wantsMalay(request));
+    const cache = await caches.open(SHELL_CACHE);
+    const cached = await cache.match(shellKey(url.pathname, malay));
+    if (cached) return cached;
+    return Response.error();
   }
-  const url = new URL(request.url);
-  const malay = await wantsMalay(request);
-  const cached = await caches.match(shellPath(url.pathname, malay));
-  if (cached) return cached;
-  return fetch(request);
 }
 
 async function cacheFirst(request) {
-  const cached = await caches.match(request);
+  const cache = await caches.open(STATIC_CACHE);
+  const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) {
-    const cache = await caches.open(CACHE);
-    await cache.put(request, response.clone());
-  }
+  if (response.ok) await cache.put(request, response.clone());
   return response;
 }
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(precacheShells());
-  self.skipWaiting();
+self.addEventListener("message", (event) => {
+  const locale = event.data?.locale;
+  if (event.data?.type !== "locale" || (locale !== "en" && locale !== "ms")) return;
+  event.waitUntil(
+    caches.open(META_CACHE).then((cache) => cache.put(localeKey, new Response(locale))),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => !KEEP.has(key)).map((key) => caches.delete(key)))),
   );
 });
 
@@ -72,7 +98,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirstPage(request));
+    event.respondWith(networkFirstPage(request, event));
     return;
   }
 

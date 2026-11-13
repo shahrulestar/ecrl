@@ -33,7 +33,8 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "ECRL Fares",
-    statusBarStyle: "black-translucent",
+    /** `default` for light (dark glyphs). `ThemeColor` switches to `black-translucent` in dark. */
+    statusBarStyle: "default",
   },
   icons: {
     icon: [
