@@ -456,7 +456,7 @@ function OutputCard({
         <DrawerTrigger
           data-fare-peek
           className={cn(
-            "peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)]",
+            "peek-enter fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 rounded-t-2xl border-t bg-background px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] text-left shadow-[0_-8px_24px_rgb(0_0_0/0.10)]",
             peekOnly ? "sm:hidden" : "lg:hidden",
           )}
           aria-label={fill(m.trip.drawerAria, {
@@ -493,7 +493,7 @@ function OutputCard({
           <div className="scroll-fade max-h-[70dvh] overflow-y-auto px-2 pb-4">
             {renderCard("border-0 ring-0")}
           </div>
-          <div className="flex flex-col gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex flex-col gap-2 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
             {peekOnly && onFrom && onTo ? (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
@@ -596,7 +596,7 @@ function PartyDrawer({
         <DrawerHeader>
           <DrawerTitle>{m.trip.passengers}</DrawerTitle>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-4 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           <PartyFields
             party={party}
             phase={phase}
@@ -757,7 +757,7 @@ function RouteDrawer({
         <DrawerHeader>
           <DrawerTitle>{m.trip.routeLabel}</DrawerTitle>
         </DrawerHeader>
-        <div className="flex flex-col gap-3 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="tablist">
             {ends.map((item) => {
               const selected = end === item.key;
@@ -962,7 +962,7 @@ export function TripTab() {
         </CardContent>
       </Card>
 
-      <div className="lg:sticky lg:top-6">
+      <div className="lg:sticky lg:top-[calc(1.5rem+env(safe-area-inset-top,0px))]">
         <OutputCard
           from={from}
           to={to}

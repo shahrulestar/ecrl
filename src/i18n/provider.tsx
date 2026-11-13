@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getMessages } from "./messages";
 import { defaultLocale, htmlLang, LOCALE_COOKIE, LOCALE_META, type Locale } from "./locales";
 import type { Messages } from "./types";
@@ -15,6 +15,11 @@ interface I18nValue {
 const I18nContext = createContext<I18nValue | null>(null);
 
 const MS_PREFIX = /^\/ms(?=\/|$)/;
+
+/** Malay HTML lives at `/ms/...` for search engines. The address bar stays on `/trip`. */
+function barePath(pathname: string) {
+  return pathname.replace(MS_PREFIX, "") || "/trip";
+}
 
 /** Prebuilt Malay HTML carries a meta marker (also when served at /trip); otherwise English. */
 function initialLocale(pathname: string): Locale {
@@ -65,6 +70,7 @@ function syncHead(locale: Locale, m: Messages, pathname: string) {
 /** English first, so server HTML and the first client render match. Malay is applied after load. */
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [locale, setLocaleState] = useState<Locale>(() => initialLocale(pathname));
 
   // Dev and non-Cloudflare hosts serve English HTML, so honour the saved choice after load.
@@ -80,6 +86,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     observer.observe(document.head, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [locale, pathname]);
+
+  useEffect(() => {
+    if (locale !== defaultLocale || !MS_PREFIX.test(pathname)) return;
+    router.replace(`${barePath(pathname)}${window.location.search}`, { scroll: false });
+  }, [locale, pathname, router]);
 
   function setLocale(next: Locale) {
     setLocaleState(next);
