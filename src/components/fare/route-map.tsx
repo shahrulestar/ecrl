@@ -447,7 +447,7 @@ export function LineMap() {
     : copy.detail;
 
   return (
-    <main className="fixed inset-x-0 top-0 h-lvh overflow-hidden bg-background">
+    <main className="fixed inset-x-0 top-0 h-dvh overflow-hidden bg-background">
       <RouteMap from={from} to={to} label={copy.label} interactive labelEnds={hasTrip} />
       <Button
         variant="outline"

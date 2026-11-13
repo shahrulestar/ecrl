@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NuqsAdapter } from "nuqs/adapters/react";
+import { PwaRegister } from "@/components/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { en } from "@/i18n/en";
@@ -14,10 +15,14 @@ const m = en.meta;
 const url = siteUrl();
 
 export const viewport: Viewport = {
-  themeColor: "#2563EB",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export const metadata: Metadata = {
@@ -25,6 +30,19 @@ export const metadata: Metadata = {
   title: { absolute: m.tripTitle },
   description: m.tripDescription,
   applicationName: m.siteName,
+  appleWebApp: {
+    capable: true,
+    title: "ECRL Fares",
+    /** `default` for light (dark glyphs). `ThemeColor` switches to `black-translucent` in dark. */
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   category: "travel",
   keywords: [...m.keywords, ...ms.meta.keywords],
   robots: {
@@ -78,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        <PwaRegister />
         <ThemeProvider>
           <TooltipProvider delay={300}>
             <NuqsAdapter>

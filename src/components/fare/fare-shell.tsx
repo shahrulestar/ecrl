@@ -211,11 +211,11 @@ export function FareShell({ children }: { children: React.ReactNode }) {
     );
 
   return (
-    <div className="flex min-h-screen flex-col bg-background max-lg:has-[[data-fare-peek]]:pb-32">
+    <div className="flex min-h-dvh flex-col bg-background max-lg:has-[[data-fare-peek]]:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
       <Suspense fallback={null}>
         <Shortcuts />
       </Suspense>
-      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-6 pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] max-lg:min-h-dvh md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-6 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] max-lg:min-h-dvh md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
         <div className="flex min-w-0 flex-col gap-2">
           <header>
             <h1 className="type-page-title min-w-0">{m.shell.title}</h1>
@@ -230,7 +230,7 @@ export function FareShell({ children }: { children: React.ReactNode }) {
         <div className="pt-0">{children}</div>
       </main>
       <footer className="mt-auto max-lg:mt-0">
-        <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-6 pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-10 md:pl-[max(1.5rem,env(safe-area-inset-left))]">
+        <div className="mx-auto w-full max-w-page pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))] md:pl-[max(1.5rem,env(safe-area-inset-left))]">
           <Card>
             <CardContent className="flex flex-col gap-6">
               <dl className="grid gap-x-8 gap-y-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
